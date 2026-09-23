@@ -19,9 +19,8 @@ prompts using an ontology tree and a versioned prompt library, without an LLM.
 ## Project layout
 
 ```text
-context_prompt_demo/   Tree, prompt library, tests, benchmark, static and webcam runners
+context_prompt_demo/   Tree, prompt library, tests, benchmark, image and webcam runners
 rgbd_demo/             RGB-D detection and colored point-cloud scripts
-water_bottle_demo/     Basic image detection example and a small demo image
 ```
 
 ## Setup
@@ -58,9 +57,11 @@ third-party artifacts.
 ```powershell
 .\.venv\Scripts\python.exe context_prompt_demo\context_yoloe.py `
   --text "tìm chai nước to nhất ở bên phải" `
-  --source water_bottle_demo\complex_input.jpg `
+  --source "C:\path\to\your\image.jpg" `
   --show
 ```
+
+Replace `--source` with the path to an RGB image on your machine.
 
 ## Run webcam detection and FPS measurement
 

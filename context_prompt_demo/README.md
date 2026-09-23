@@ -25,9 +25,11 @@ Run the complete pipeline:
 ```powershell
 .\.venv\Scripts\python.exe context_prompt_demo\context_yoloe.py `
   --text "tìm chai nước bên phải" `
-  --source water_bottle_demo\complex_input.jpg `
+  --source "C:\path\to\your\image.jpg" `
   --show
 ```
+
+Replace `--source` with the path to an RGB image on your machine.
 
 Benchmark every stored prompt against labeled RGB-D frames:
 

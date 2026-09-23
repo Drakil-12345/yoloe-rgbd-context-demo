@@ -19,7 +19,7 @@ def parse_args() -> argparse.Namespace:
     here = Path(__file__).resolve().parent
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--text", required=True, help="Raw keyword/utterance from Speech-to-Text.")
-    parser.add_argument("--source", type=Path, default=here.parent / "water_bottle_demo" / "complex_input.jpg")
+    parser.add_argument("--source", type=Path, required=True, help="Path to the input RGB image.")
     parser.add_argument("--library", type=Path, default=here / "prompt_library.json")
     parser.add_argument("--model", type=Path, default=here.parent / "yoloe-v8s-seg.pt")
     parser.add_argument("--conf", type=float, default=0.15)
