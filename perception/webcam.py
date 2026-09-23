@@ -172,6 +172,25 @@ def save_report(path: Path, report: dict) -> None:
     path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def write_timed_frame(
+    writer: cv2.VideoWriter,
+    frame: np.ndarray,
+    previous_frame: np.ndarray | None,
+    elapsed_seconds: float,
+    output_fps: float,
+    frames_written: int,
+) -> tuple[np.ndarray, int]:
+    """Repeat the previous frame when processing is slower than video playback."""
+    target_frames = max(1, int(elapsed_seconds * output_fps) + 1)
+    if frames_written >= target_frames:
+        return previous_frame if previous_frame is not None else frame, frames_written
+    fill_frame = previous_frame if previous_frame is not None else frame
+    for _ in range(target_frames - frames_written - 1):
+        writer.write(fill_frame)
+    writer.write(frame)
+    return frame, target_frames
+
+
 def main() -> None:
     args = parse_args()
     optimizer = PromptOptimizer(args.library)
@@ -189,6 +208,10 @@ def main() -> None:
     capture, first_frame, backend_name = open_camera(args)
 
     writer = None
+    record_started_at = None
+    previous_recorded_frame = None
+    recorded_frames = 0
+    recording_fps = None
     window_name = "YOLOE webcam | Tree + Prompt Library"
     frame_durations: list[float] = []
     inference_times: list[float] = []
@@ -241,14 +264,24 @@ def main() -> None:
                 if writer is None:
                     args.record.parent.mkdir(parents=True, exist_ok=True)
                     fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-                    output_fps = capture.get(cv2.CAP_PROP_FPS) or args.capture_fps
+                    recording_fps = capture.get(cv2.CAP_PROP_FPS) or args.capture_fps
                     writer = cv2.VideoWriter(
                         str(args.record),
                         fourcc,
-                        output_fps,
+                        recording_fps,
                         (annotated.shape[1], annotated.shape[0]),
                     )
-                writer.write(annotated)
+                    if not writer.isOpened():
+                        raise RuntimeError(f"Could not open video writer: {args.record}")
+                    record_started_at = time.perf_counter()
+                previous_recorded_frame, recorded_frames = write_timed_frame(
+                    writer,
+                    annotated,
+                    previous_recorded_frame,
+                    time.perf_counter() - record_started_at,
+                    recording_fps,
+                    recorded_frames,
+                )
 
             key = -1
             if not args.no_display:
@@ -304,6 +337,13 @@ def main() -> None:
             inference_times,
             started_at,
         )
+        if args.record and writer is not None:
+            final_report["recording"] = {
+                "path": str(args.record.resolve()),
+                "encoded_fps": recording_fps,
+                "encoded_frames": recorded_frames,
+                "duration_seconds": recorded_frames / recording_fps,
+            }
         save_report(args.output, final_report)
         capture.release()
         if writer is not None:

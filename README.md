@@ -61,6 +61,10 @@ python -m unittest discover -s tests -v
 
 Các lệnh nhận `--help` để xem tùy chọn như `--model`, `--dataset`, `--index`,
 `--output` và `--duration`. Mặc định ảnh/JSON/PLY được ghi vào `outputs/`.
+Trên máy thử nghiệm, camera 640×480 đạt khoảng 30 FPS, còn 1280×720 đạt khoảng
+10 FPS dù inference YOLOE chỉ mất khoảng 18–21 ms/frame. Khi ưu tiên tốc độ,
+dùng `--width 640 --height 480`; thêm `--record outputs/camera.mp4` để lưu video
+theo thời gian thực.
 
 ## Tree + Prompt Library
 
