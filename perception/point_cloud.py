@@ -39,6 +39,7 @@ def parse_args() -> argparse.Namespace:
         help="For object clouds, reject depths farther than this from the masked median; 0 disables.",
     )
     parser.add_argument("--output", type=Path, default=OUTPUT_DIR / "point_cloud")
+    parser.add_argument("--show", action="store_true", help="Open the generated three-view preview image.")
     return parser.parse_args()
 
 
@@ -242,6 +243,28 @@ def main() -> None:
     }
     report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(json.dumps(report, indent=2), flush=True)
+
+    if args.show:
+        preview = cv2.imread(str(preview_path), cv2.IMREAD_COLOR)
+        if preview is None:
+            raise RuntimeError(f"Could not open point-cloud preview: {preview_path}")
+        window = "RGB-D point cloud preview"
+        cv2.namedWindow(window, cv2.WINDOW_NORMAL)
+        cv2.imshow(window, preview)
+        print("Press Q or Esc in the preview window to close it.", flush=True)
+        while True:
+            key = cv2.waitKey(100) & 0xFF
+            if key in (ord("q"), ord("Q"), 27):
+                break
+            try:
+                if cv2.getWindowProperty(window, cv2.WND_PROP_VISIBLE) < 1:
+                    break
+            except cv2.error:
+                break
+        try:
+            cv2.destroyWindow(window)
+        except cv2.error:
+            pass
 
 
 if __name__ == "__main__":

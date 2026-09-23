@@ -49,8 +49,8 @@ python -m perception.webcam --text "tìm chai nước" --camera 0 --mirror
 # RGB-D: detect trên RGB và đo khoảng cách từ depth
 python -m perception.rgbd --show
 
-# Tạo point cloud PLY có màu và ảnh preview
-python -m perception.point_cloud
+# Tạo point cloud PLY có màu và hiện ảnh preview ba góc nhìn
+python -m perception.point_cloud --index 23 --show
 
 # So sánh các prompt bằng 12 frame RGB-D có mask
 python -m perception.benchmark --samples 12
