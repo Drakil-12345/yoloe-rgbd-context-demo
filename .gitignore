@@ -1,0 +1,47 @@
+# Python environments and caches
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Model weights and generated model caches
+*.pt
+*.pth
+*.onnx
+*.engine
+*.ts
+
+# Downloaded archives, datasets, and backups
+*.tar
+*.tgz
+*.zip
+backups/
+rgbd_demo/dataset/
+
+# Generated outputs
+runs/
+degraded/
+natural_language_results/
+text_results/
+context_prompt_demo/results/
+rgbd_demo/results/
+rgbd_demo/results_water_bottle/
+rgbd_demo/point_cloud_results/
+water_bottle_demo/*_detected.jpg
+water_bottle_demo/*_diagnostic.jpg
+water_bottle_demo/*_results.json
+water_bottle_demo/detected.jpg
+water_bottle_demo/results.json
+water_bottle_demo/diagnostics.json
+water_bottle_demo/rgbd_probe_*
+
+# Local test media
+/test*.jpg
+/*.webp
+water_bottle_demo/input.jpg
+
+# IDE and operating-system files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,126 @@
+{
+  "version": 1,
+  "ontology": {
+    "physical_object": {
+      "container": {
+        "drinking_container": ["water_bottle", "cup"]
+      },
+      "furniture": ["chair"],
+      "electronic_device": ["laptop", "cell_phone", "remote_control"]
+    }
+  },
+  "concepts": {
+    "water_bottle": {
+      "display_name": "water bottle",
+      "ontology_path": ["physical_object", "container", "drinking_container", "water_bottle"],
+      "aliases": [
+        {"text": "water bottle", "weight": 1.0},
+        {"text": "bottle", "weight": 0.9},
+        {"text": "plastic bottle", "weight": 0.95},
+        {"text": "chai nước", "weight": 1.0},
+        {"text": "chai", "weight": 0.72},
+        {"text": "bình nước", "weight": 0.9},
+        {"text": "chai nhựa", "weight": 0.9}
+      ],
+      "prompts": [
+        {"text": "bottle", "priority": 100, "reason": "Best confidence on the local YOLOE validation images."},
+        {"text": "water bottle", "priority": 70, "reason": "Semantically precise fallback."},
+        {"text": "plastic bottle", "priority": 60, "reason": "Material-specific fallback."}
+      ]
+    },
+    "cup": {
+      "display_name": "cup",
+      "ontology_path": ["physical_object", "container", "drinking_container", "cup"],
+      "aliases": [
+        {"text": "cup", "weight": 1.0},
+        {"text": "mug", "weight": 1.0},
+        {"text": "coffee mug", "weight": 1.0},
+        {"text": "cốc", "weight": 1.0},
+        {"text": "ly", "weight": 0.9}
+      ],
+      "prompts": [
+        {"text": "cup", "priority": 100},
+        {"text": "mug", "priority": 90},
+        {"text": "coffee mug", "priority": 70}
+      ]
+    },
+    "chair": {
+      "display_name": "chair",
+      "ontology_path": ["physical_object", "furniture", "chair"],
+      "aliases": [
+        {"text": "chair", "weight": 1.0},
+        {"text": "seat", "weight": 0.75},
+        {"text": "ghế", "weight": 1.0}
+      ],
+      "prompts": [
+        {"text": "chair", "priority": 100},
+        {"text": "seat", "priority": 60}
+      ]
+    },
+    "laptop": {
+      "display_name": "laptop",
+      "ontology_path": ["physical_object", "electronic_device", "laptop"],
+      "aliases": [
+        {"text": "laptop", "weight": 1.0},
+        {"text": "laptop computer", "weight": 1.0},
+        {"text": "máy tính xách tay", "weight": 1.0},
+        {"text": "máy tính", "weight": 0.72}
+      ],
+      "prompts": [
+        {"text": "laptop", "priority": 100},
+        {"text": "laptop computer", "priority": 80}
+      ]
+    },
+    "cell_phone": {
+      "display_name": "cell phone",
+      "ontology_path": ["physical_object", "electronic_device", "cell_phone"],
+      "aliases": [
+        {"text": "cell phone", "weight": 1.0},
+        {"text": "mobile phone", "weight": 1.0},
+        {"text": "smartphone", "weight": 1.0},
+        {"text": "phone", "weight": 0.82},
+        {"text": "điện thoại", "weight": 1.0}
+      ],
+      "prompts": [
+        {"text": "cell phone", "priority": 100},
+        {"text": "mobile phone", "priority": 85},
+        {"text": "smartphone", "priority": 75}
+      ]
+    },
+    "remote_control": {
+      "display_name": "remote control",
+      "ontology_path": ["physical_object", "electronic_device", "remote_control"],
+      "aliases": [
+        {"text": "remote control", "weight": 1.0},
+        {"text": "remote", "weight": 0.9},
+        {"text": "điều khiển", "weight": 0.9},
+        {"text": "điều khiển từ xa", "weight": 1.0}
+      ],
+      "prompts": [
+        {"text": "remote control", "priority": 100},
+        {"text": "remote", "priority": 80}
+      ]
+    }
+  },
+  "modifiers": {
+    "colors": {
+      "blue": ["blue", "xanh", "xanh dương", "xanh da trời"],
+      "red": ["red", "đỏ"],
+      "green": ["green", "xanh lá", "xanh lục"],
+      "yellow": ["yellow", "vàng"],
+      "black": ["black", "đen"],
+      "white": ["white", "trắng"]
+    },
+    "spatial": {
+      "left": ["left", "on the left", "bên trái", "phía trái"],
+      "right": ["right", "on the right", "bên phải", "phía phải"],
+      "center": ["center", "middle", "ở giữa", "chính giữa"],
+      "top": ["top", "above", "phía trên", "bên trên"],
+      "bottom": ["bottom", "below", "phía dưới", "bên dưới"]
+    },
+    "selection": {
+      "largest": ["largest", "biggest", "to nhất", "lớn nhất"],
+      "smallest": ["smallest", "bé nhất", "nhỏ nhất"]
+    }
+  }
+}
