@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 from pathlib import Path
 
 import cv2
@@ -12,9 +11,7 @@ import numpy as np
 import torch
 from ultralytics import YOLOE
 
-
-def natural_key(path: Path):
-    return [int(part) if part.isdigit() else part for part in re.split(r"(\d+)", path.name)]
+from .common import LIBRARY_PATH, MODEL_PATH, OUTPUT_DIR, RGBD_DATASET, natural_key
 
 
 def box_iou(box, target) -> float:
@@ -27,18 +24,18 @@ def box_iou(box, target) -> float:
 
 
 def main() -> None:
-    here = Path(__file__).resolve().parent
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--library", type=Path, default=here / "prompt_library.json")
+    parser.add_argument("--library", type=Path, default=LIBRARY_PATH)
     parser.add_argument("--concept", default="water_bottle")
     parser.add_argument(
         "--dataset",
         type=Path,
-        default=here.parent / "rgbd_demo" / "dataset" / "rgbd-dataset" / "water_bottle" / "water_bottle_1",
+        default=RGBD_DATASET,
     )
     parser.add_argument("--samples", type=int, default=12)
     parser.add_argument("--threshold", type=float, default=0.15)
-    parser.add_argument("--output", type=Path, default=here / "results" / "prompt_benchmark.json")
+    parser.add_argument("--model", type=Path, default=MODEL_PATH)
+    parser.add_argument("--output", type=Path, default=OUTPUT_DIR / "prompt_benchmark.json")
     args = parser.parse_args()
 
     library = json.loads(args.library.read_text(encoding="utf-8"))
@@ -54,7 +51,7 @@ def main() -> None:
         ground_truth.append([float(xs.min()), float(ys.min()), float(xs.max() + 1), float(ys.max() + 1)])
 
     device: int | str = 0 if torch.cuda.is_available() else "cpu"
-    model = YOLOE(str(here.parent / "yoloe-v8s-seg.pt"))
+    model = YOLOE(str(args.model))
     rows = []
     for prompt in prompts:
         model.set_classes([prompt])

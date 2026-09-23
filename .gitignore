@@ -1,39 +1,31 @@
-# Python environments and caches
+# Local Python environment and caches
 .venv/
 __pycache__/
 *.py[cod]
 .pytest_cache/
 
-# Model weights and generated model caches
+# Downloaded inputs and generated output
+/data/
+/outputs/
+/runs/
+/*.jpg
+/*.jpeg
+/*.png
+/*.webp
+*.tar
+*.tgz
+*.zip
+
+# YOLOE weights and MobileCLIP cache
 *.pt
 *.pth
 *.onnx
 *.engine
 /mobileclip_blt.ts
 
-# Downloaded archives, datasets, and backups
-*.tar
-*.tgz
-*.zip
-backups/
-rgbd_demo/dataset/
-
-# Generated outputs
-runs/
-degraded/
-natural_language_results/
-text_results/
-context_prompt_demo/results/
-rgbd_demo/results/
-rgbd_demo/results_water_bottle/
-rgbd_demo/point_cloud_results/
-water_bottle_demo/
-
-# Local test media
-/test*.jpg
-/*.webp
-
-# IDE and operating-system files
+# Local settings
+.env
+.env.*
 .idea/
 .vscode/
 .DS_Store

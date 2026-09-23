@@ -16,12 +16,12 @@ import numpy as np
 import torch
 from ultralytics import YOLOE
 
-from context_yoloe import filter_by_context
-from prompt_optimizer import PromptOptimizer
+from .common import LIBRARY_PATH, MODEL_PATH, OUTPUT_DIR
+from .image import filter_by_context
+from .prompts import PromptOptimizer
 
 
 def parse_args() -> argparse.Namespace:
-    here = Path(__file__).resolve().parent
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--text", default="chai nước", help="Keyword/utterance received from Speech-to-Text.")
     parser.add_argument("--camera", type=int, default=0, help="OpenCV camera index.")
@@ -37,9 +37,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--no-display", action="store_true", help="Run without an OpenCV preview window.")
     parser.add_argument("--report-interval", type=float, default=2.0)
     parser.add_argument("--record", type=Path, help="Optional annotated MP4 output path.")
-    parser.add_argument("--library", type=Path, default=here / "prompt_library.json")
-    parser.add_argument("--model", type=Path, default=here.parent / "yoloe-v8s-seg.pt")
-    parser.add_argument("--output", type=Path, default=here / "results" / "webcam_fps.json")
+    parser.add_argument("--library", type=Path, default=LIBRARY_PATH)
+    parser.add_argument("--model", type=Path, default=MODEL_PATH)
+    parser.add_argument("--output", type=Path, default=OUTPUT_DIR / "webcam_fps.json")
     return parser.parse_args()
 
 

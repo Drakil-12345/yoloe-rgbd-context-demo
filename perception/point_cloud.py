@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 from pathlib import Path
 
 import cv2
@@ -15,6 +14,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 
+from .common import OUTPUT_DIR, RGBD_DATASET, natural_key
+
 
 FOCAL_LENGTH_PX = 570.3
 PRINCIPAL_POINT = (320.0, 240.0)
@@ -22,12 +23,11 @@ MM_PER_M = 1000.0
 
 
 def parse_args() -> argparse.Namespace:
-    here = Path(__file__).resolve().parent
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--dataset",
         type=Path,
-        default=here / "dataset" / "rgbd-dataset" / "water_bottle" / "water_bottle_1",
+        default=RGBD_DATASET,
     )
     parser.add_argument("--index", type=int, default=23, help="Zero-based pair index in natural frame order.")
     parser.add_argument("--all-pixels", action="store_true", help="Include background instead of the object mask.")
@@ -38,12 +38,8 @@ def parse_args() -> argparse.Namespace:
         default=120.0,
         help="For object clouds, reject depths farther than this from the masked median; 0 disables.",
     )
-    parser.add_argument("--output", type=Path, default=here / "point_cloud_results")
+    parser.add_argument("--output", type=Path, default=OUTPUT_DIR / "point_cloud")
     return parser.parse_args()
-
-
-def natural_key(path: Path) -> list[int | str]:
-    return [int(part) if part.isdigit() else part for part in re.split(r"(\d+)", path.name)]
 
 
 def discover_frames(dataset: Path) -> list[tuple[Path, Path, Path, Path]]:

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 from pathlib import Path
 
 import cv2
@@ -12,29 +11,28 @@ import numpy as np
 import torch
 from ultralytics import YOLOE
 
+from .common import MODEL_PATH, OUTPUT_DIR, RGBD_DATASET, natural_key
 
 def parse_args() -> argparse.Namespace:
-    here = Path(__file__).resolve().parent
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--dataset",
         type=Path,
-        default=here / "dataset" / "rgbd-dataset" / "water_bottle" / "water_bottle_1",
+        default=RGBD_DATASET,
         help="Folder containing Washington RGB-D *_crop.png pairs.",
     )
     parser.add_argument("--index", type=int, default=23, help="Zero-based RGB-D pair index.")
     parser.add_argument("--prompt", default="bottle", help="YOLOE open-vocabulary prompt.")
     parser.add_argument("--conf", type=float, default=0.15)
     parser.add_argument("--imgsz", type=int, default=640)
-    parser.add_argument("--model", type=Path, default=here.parent / "yoloe-v8s-seg.pt")
-    parser.add_argument("--output", type=Path, default=here / "results")
+    parser.add_argument("--model", type=Path, default=MODEL_PATH)
+    parser.add_argument("--output", type=Path, default=OUTPUT_DIR / "rgbd")
     parser.add_argument("--show", action="store_true", help="Open the RGB-D result window.")
     return parser.parse_args()
 
 
 def discover_pairs(dataset: Path) -> list[tuple[Path, Path, Path | None]]:
     pairs: list[tuple[Path, Path, Path | None]] = []
-    natural_key = lambda path: [int(part) if part.isdigit() else part for part in re.split(r"(\d+)", path.name)]
     for rgb_path in sorted(dataset.glob("*_crop.png"), key=natural_key):
         prefix = rgb_path.name.removesuffix("_crop.png")
         depth_path = dataset / f"{prefix}_depthcrop.png"

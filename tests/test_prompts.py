@@ -1,13 +1,12 @@
 import unittest
-from pathlib import Path
-
-from prompt_optimizer import PromptOptimizer
+from perception.common import LIBRARY_PATH
+from perception.prompts import PromptOptimizer
 
 
 class PromptOptimizerTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.optimizer = PromptOptimizer(Path(__file__).with_name("prompt_library.json"))
+        cls.optimizer = PromptOptimizer(LIBRARY_PATH)
 
     def assert_resolution(self, text, concept, prompt, color=None, spatial=None, selection=None):
         result = self.optimizer.resolve(text)

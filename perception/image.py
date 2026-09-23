@@ -12,19 +12,19 @@ import cv2
 import torch
 from ultralytics import YOLOE
 
-from prompt_optimizer import PromptOptimizer
+from .common import LIBRARY_PATH, MODEL_PATH, OUTPUT_DIR
+from .prompts import PromptOptimizer
 
 
 def parse_args() -> argparse.Namespace:
-    here = Path(__file__).resolve().parent
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--text", required=True, help="Raw keyword/utterance from Speech-to-Text.")
     parser.add_argument("--source", type=Path, required=True, help="Path to the input RGB image.")
-    parser.add_argument("--library", type=Path, default=here / "prompt_library.json")
-    parser.add_argument("--model", type=Path, default=here.parent / "yoloe-v8s-seg.pt")
+    parser.add_argument("--library", type=Path, default=LIBRARY_PATH)
+    parser.add_argument("--model", type=Path, default=MODEL_PATH)
     parser.add_argument("--conf", type=float, default=0.15)
     parser.add_argument("--imgsz", type=int, default=640)
-    parser.add_argument("--output", type=Path, default=here / "results")
+    parser.add_argument("--output", type=Path, default=OUTPUT_DIR / "image")
     parser.add_argument("--show", action="store_true")
     return parser.parse_args()
 

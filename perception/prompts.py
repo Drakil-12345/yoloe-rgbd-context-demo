@@ -12,6 +12,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+from .common import LIBRARY_PATH
+
 
 def normalize_text(text: str) -> str:
     text = text.lower().replace("đ", "d")
@@ -218,10 +220,9 @@ class PromptOptimizer:
 
 
 def main() -> None:
-    here = Path(__file__).resolve().parent
     parser = argparse.ArgumentParser()
     parser.add_argument("text", nargs="+", help="STT keyword or utterance")
-    parser.add_argument("--library", type=Path, default=here / "prompt_library.json")
+    parser.add_argument("--library", type=Path, default=LIBRARY_PATH)
     args = parser.parse_args()
     resolved = PromptOptimizer(args.library).resolve(" ".join(args.text))
     if hasattr(sys.stdout, "reconfigure"):

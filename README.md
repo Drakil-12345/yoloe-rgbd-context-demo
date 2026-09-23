@@ -1,106 +1,99 @@
-# YOLOE Context, RGB-D and Webcam Demo
+# YOLOE Perception
 
-Prototype perception pipeline for YOLOE with deterministic context understanding,
-RGB-D distance estimation, point-cloud generation, and live webcam FPS testing.
-The project maps Vietnamese/English Speech-to-Text output to optimized YOLOE
-prompts using an ontology tree and a versioned prompt library, without an LLM.
+Pipeline perception nhận câu/keyword từ Speech-to-Text, dùng cây khái niệm và
+prompt library để chọn prompt YOLOE. Repo cũng có detection từ ảnh hoặc webcam,
+ước lượng khoảng cách từ RGB-D, tạo point cloud và benchmark prompt.
 
-## Features
-
-- Tree + Prompt Library resolver for Vietnamese, unaccented Vietnamese, and English.
-- Whole-token aliases, fuzzy ASR recovery, clause negation, colors, spatial rules,
-  and largest/smallest selection.
-- Empirical prompt benchmarking on labeled RGB-D frames.
-- YOLOE image detection with ordered prompt fallbacks.
-- Live laptop-camera detection with end-to-end FPS and inference latency.
-- RGB-D detection with metric object depth.
-- Colored PLY point-cloud generation from Washington RGB-D crops.
-
-## Project layout
+## Cấu trúc
 
 ```text
-context_prompt_demo/   Tree, prompt library, tests, benchmark, image and webcam runners
-rgbd_demo/             RGB-D detection and colored point-cloud scripts
+perception/       Mã nguồn: prompts, image, webcam, rgbd, point_cloud, benchmark
+tests/            Kiểm thử cho bộ giải ngữ cảnh
+data/             Ảnh và RGB-D tải về (không commit)
+outputs/          Ảnh, JSON, PLY và video sinh ra (không commit)
 ```
 
-## Setup
+`yoloe-v8s-seg.pt` và `mobileclip_blt.ts` là model/cache tải về, được giữ ở
+thư mục gốc để YOLOE tìm được theo mặc định; cả hai không được commit.
 
-Create a Python environment and install the runtime dependencies:
+## Cài đặt
+
+Chạy PowerShell tại thư mục repo:
 
 ```powershell
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-Place the YOLOE checkpoint at the repository root:
-
-```text
-yoloe-v8s-seg.pt
-```
-
-The checkpoint, MobileCLIP cache, virtual environment, and downloaded RGB-D
-dataset are intentionally excluded from Git because they are large generated or
-third-party artifacts.
-
-## Test the prompt resolver
-
-```powershell
-.\.venv\Scripts\python.exe -m unittest discover -s context_prompt_demo -p "test_*.py" -v
-
-.\.venv\Scripts\python.exe context_prompt_demo\prompt_optimizer.py `
-  tìm chai nước màu xanh bên phải
-```
-
-## Run YOLOE on an image
-
-```powershell
-.\.venv\Scripts\python.exe context_prompt_demo\context_yoloe.py `
-  --text "tìm chai nước to nhất ở bên phải" `
-  --source "C:\path\to\your\image.jpg" `
-  --show
-```
-
-Replace `--source` with the path to an RGB image on your machine.
-
-## Run webcam detection and FPS measurement
-
-```powershell
-.\.venv\Scripts\python.exe context_prompt_demo\webcam_yoloe.py `
-  --text "tìm chai nước" `
-  --camera 0 `
-  --mirror
-```
-
-Press `Q` or `Esc` to stop. Use `--duration 30` for a fixed benchmark.
-On the development laptop (GTX 1650, 1280x720 camera), the measured result was
-about 30 FPS end-to-end with roughly 16 ms YOLOE inference latency.
-
-## Prompt benchmark
-
-```powershell
-.\.venv\Scripts\python.exe context_prompt_demo\benchmark_prompts.py --samples 12
-```
-
-For the included water-bottle experiment, `bottle` reached a 100% detection rate
-on 12 sampled frames at confidence 0.15, while the more specific prompts did not.
-
-## RGB-D and point cloud
-
-Download the `water_bottle_1` cropped archive from the
+Đặt checkpoint `yoloe-v8s-seg.pt` tại thư mục gốc. Nếu chưa có dataset RGB-D,
+tải instance `water_bottle_1` từ
 [Washington RGB-D Object Dataset](https://rgbd-dataset.cs.washington.edu/dataset/)
-and extract it under:
+và giải nén các file `*_crop.png`, `*_depthcrop.png`, `*_maskcrop.png`, `*_loc.txt`
+vào `data/rgbd/water_bottle_1/`.
 
-```text
-rgbd_demo/dataset/rgbd-dataset/water_bottle/water_bottle_1/
-```
+## Chạy
 
-Then run:
+Mọi lệnh chạy từ thư mục gốc bằng `python -m perception.<module>`. Trên Windows,
+thay `python` bằng `.\.venv\Scripts\python.exe` nếu chưa kích hoạt môi trường.
 
 ```powershell
-.\.venv\Scripts\python.exe rgbd_demo\rgbd_yoloe.py --show
-.\.venv\Scripts\python.exe rgbd_demo\create_point_cloud.py
+# Xem Tree + Library giải câu STT thành prompt nào
+python -m perception.prompts tìm chai nước màu xanh bên phải
+
+# Detect trên ảnh RGB; thay bằng đường dẫn ảnh của bạn
+python -m perception.image --text "tìm chai nước bên phải" --source "C:\path\to\image.jpg" --show
+
+# Camera laptop, hiển thị FPS; Q hoặc Esc để dừng
+python -m perception.webcam --text "tìm chai nước" --camera 0 --mirror
+
+# RGB-D: detect trên RGB và đo khoảng cách từ depth
+python -m perception.rgbd --show
+
+# Tạo point cloud PLY có màu và ảnh preview
+python -m perception.point_cloud
+
+# So sánh các prompt bằng 12 frame RGB-D có mask
+python -m perception.benchmark --samples 12
+
+# Kiểm thử bộ giải ngữ cảnh
+python -m unittest discover -s tests -v
 ```
 
-More details are available in [context_prompt_demo/DESIGN.md](context_prompt_demo/DESIGN.md)
-and [rgbd_demo/README.md](rgbd_demo/README.md).
+Các lệnh nhận `--help` để xem tùy chọn như `--model`, `--dataset`, `--index`,
+`--output` và `--duration`. Mặc định ảnh/JSON/PLY được ghi vào `outputs/`.
+
+## Tree + Prompt Library
+
+Ví dụ `tìm chai nước to nhất ở bên phải` được chuyển thành:
+
+```text
+concept: water_bottle
+YOLOE prompt: bottle
+spatial: right
+selection: largest
+fallback: water bottle, plastic bottle
+```
+
+`perception/prompt_library.json` lưu ontology, từ đồng nghĩa Việt/Anh, các biến
+thể STT và thứ tự prompt. Bộ giải chuẩn hóa dấu và dấu câu, ưu tiên alias khớp
+nguyên từ, dùng fuzzy match khi STT sai nhẹ, rồi tách màu/vị trí/kích thước khỏi
+prompt YOLOE. Nếu prompt đầu không có detection, pipeline thử prompt kế tiếp.
+Vị trí và kích thước được lọc sau khi detect. Có thể thêm object bằng cách sửa
+library mà không phải sửa mã inference.
+
+Màu hiện được parse nhưng chưa dùng để lọc box. Nhiều target trong một câu được
+báo là ambiguous; tham chiếu hội thoại như `nó` chưa có session state. Benchmark
+trước đây trên 12 frame `water_bottle_1` cho thấy prompt `bottle` đạt detection
+rate 100% ở ngưỡng 0.15 với checkpoint đang dùng.
+
+## RGB-D và point cloud
+
+YOLOE xử lý ảnh RGB ba kênh. Sau detection/segmentation, chương trình lấy median
+depth trong vùng vật thể để báo khoảng cách mét. Point cloud dùng intrinsics
+Kinect của dataset (`fx = fy = 570.3`, `cx = 320`, `cy = 240`) và crop offset trong
+`loc.txt`; tọa độ PLY tính bằng mét (`+X` phải, `+Y` xuống, `+Z` về trước).
+Mặc định point cloud bỏ nền và depth lệch quá 120 mm so với median vật thể;
+`--all-pixels` hoặc `--depth-outlier-mm 0` thay đổi bộ lọc này.
+
+Nguồn dữ liệu: Kevin Lai, Liefeng Bo, Xiaofeng Ren, Dieter Fox,
+"A Large-Scale Hierarchical Multi-View RGB-D Object Dataset," ICRA 2011.
