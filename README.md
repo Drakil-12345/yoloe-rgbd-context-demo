@@ -116,6 +116,36 @@ alignment, báo MAE/RMSE XYZ, Euclidean error, depth fill rate và tỷ lệ đ�
 [Tài liệu Intel về depth quality](https://www.intel.com/content/dam/support/us/en/documents/emerging-technologies/intel-realsense-technology/RealSense_DepthQualityTesting.pdf)
 cũng phân biệt accuracy so với khoảng cách chuẩn, fill rate và nhiễu.
 
+Một ảnh tĩnh chỉ cho biết **camera báo bao nhiêu**, không tự chứng minh kết quả
+đúng. Để kiểm tra `Z` trên camera thật, đặt một mặt phẳng có texture ở các mốc
+đo độc lập (ví dụ 0,5 / 1 / 1,5 / 2 m tính từ mặt phẳng cảm biến theo trục
+quang học), giữ RGB-depth đã căn chỉnh, lấy nhiều frame tại mỗi mốc rồi so sánh
+`Z` với khoảng cách chuẩn. Đo tới **cùng mặt phẳng bề mặt** mà mask lấy depth;
+đừng so với tâm của vật dày. Báo bias, MAE/RMSE và độ phủ depth theo từng mốc;
+`depth_mad_m` chỉ là độ phân tán của pixel depth, không phải sai số so với thực tế.
+Nếu đo bằng thước từ camera tới một điểm lệch trục, so với `radial_distance_m`
+thay vì `Z`.
+
+Khi có số đo độc lập `D` (m) tới đúng mặt phẳng cần kiểm tra, thêm
+`--measured-z-m D` vào lệnh `perception.rgbd`. File `localization.json` sẽ có
+`measured_z_check.absolute_error_m` và sai số phần trăm cho **frame đó**. Không
+điền chính giá trị mà depth map đã báo làm số đo chuẩn.
+
+### Ảnh RGB-D ở xa hơn
+
+[Washington RGB-D Scenes](https://rgbd-dataset.cs.washington.edu/dataset/rgbd-scenes/)
+có cảnh phòng với vật ở nhiều vị trí. Tải `desk_1.tar`, giải nén các file
+`desk_1_<số>.png` và `desk_1_<số>_depth.png` vào `data/rgbd/desk_1/`. Mẫu
+`desk_1_1` cho laptop `Z=1,173 m`, khoảng cách thẳng `1,251 m`, độ phủ depth
+33,5%; xa hơn các mẫu turntable ở khoảng 0,6–0,7 m. Chạy:
+
+```powershell
+.\.venv\Scripts\python.exe -m perception.rgbd --rgb data\rgbd\desk_1\desk_1_1.png --depth data\rgbd\desk_1\desk_1_1_depth.png --intrinsics configs\washington_intrinsics.json --prompt laptop --show
+```
+
+Đây là số đo do ảnh depth ghi lại, **không phải sai số được kiểm chứng**; dataset
+scene này không có phép đo XYZ độc lập của laptop cho phép kết luận độ chính xác.
+
 ## Dùng cặp ảnh từ camera RGB-D khác
 
 Lưu một ảnh RGB và một ảnh depth **đã căn chỉnh**, cùng kích thước. Depth phải

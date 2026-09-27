@@ -31,6 +31,8 @@ def parse_args() -> argparse.Namespace:
                         help="JSON with fx,fy,cx,cy,depth_scale_m; default: Washington Kinect.")
     parser.add_argument("--depth-outlier-m", type=float, default=0.12)
     parser.add_argument("--min-valid-pixels", type=int, default=20)
+    parser.add_argument("--measured-z-m", type=float,
+                        help="Independent optical-axis distance to the same observed surface, in metres.")
     parser.add_argument("--conf", type=float, default=0.15)
     parser.add_argument("--all-detections", action="store_true",
                         help="Report every YOLOE region; default: one highest-confidence target.")
@@ -134,6 +136,11 @@ def render_result(
 
 def main() -> None:
     args = parse_args()
+    if args.measured_z_m is not None:
+        if not np.isfinite(args.measured_z_m) or args.measured_z_m <= 0:
+            raise SystemExit("--measured-z-m must be a positive finite distance")
+        if args.all_detections:
+            raise SystemExit("--measured-z-m requires one target; omit --all-detections")
     if args.rgb is not None:
         if args.depth is None or args.intrinsics is None:
             raise SystemExit("--rgb requires --depth and --intrinsics for this camera")
@@ -199,6 +206,17 @@ def main() -> None:
         "accuracy_note": "XYZ represents the observed object region in the camera frame; it is not the 3D volume center or necessarily a physical surface point. Absolute accuracy needs independently measured XYZ ground truth for the same target definition.",
         "output_image": str(image_path.resolve()),
     }
+    if args.measured_z_m is not None:
+        estimated_z = detections[0]["position"]["xyz_m"][2] if detections and detections[0]["position"]["xyz_m"] else None
+        error = estimated_z - args.measured_z_m if estimated_z is not None else None
+        report["measured_z_check"] = {
+            "reference_z_m": args.measured_z_m,
+            "estimated_z_m": estimated_z,
+            "signed_error_m": error,
+            "absolute_error_m": abs(error) if error is not None else None,
+            "relative_absolute_error_percent": abs(error) / args.measured_z_m * 100 if error is not None else None,
+            "note": "Valid only when the independently measured optical-axis distance refers to the same observed surface as the depth mask. One image does not characterize accuracy across distances.",
+        }
     report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(report, ensure_ascii=False, indent=2), flush=True)
     if args.show:
