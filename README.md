@@ -77,14 +77,56 @@ Kết quả trên 100 frame trải đều mỗi dataset (`--conf 0.15`):
 
 | Dataset / prompt | Định vị thành công | Mask IoU trung bình | Sai khác Euclidean trung bình so với mask chú giải |
 | --- | ---: | ---: | ---: |
-| `apple_1` / `apple` | 79/100 | 0,887 | 2,56 mm (79 frame) |
-| `cereal_box_1` / `cereal box` | 70/100 | 0,738 | 22,05 mm (70 frame) |
-| `cereal_box_1` / `box` | 90/100 | 0,734 | 22,64 mm (90 frame) |
+| `apple_1` / `apple` | 79/100 | 0,889 | 2,31 mm (79 frame) |
+| `cereal_box_1` / `cereal box` | 70/100 | 0,708 | 23,40 mm (70 frame) |
+| `cereal_box_1` / `box` | 90/100 | 0,706 | 26,27 mm (90 frame) |
 
 Prompt `box` tăng tỷ lệ định vị cho bộ hộp ngũ cốc đơn vật thể, nhưng đây không
 phải bằng chứng nó tốt hơn trong cảnh có nhiều hộp. Sai khác tọa độ trong bảng
 chỉ so với mask chú giải trên cùng depth map, **không phải độ chính xác tuyệt đối
 của camera**.
+
+## Có cần segmentation cho tọa độ Perception?
+
+`perception.compare_regions` chạy **một lần YOLOE trên mỗi frame** rồi so sánh
+hai vùng của cùng detection: bounding box và mask pixel segmentation. Không dùng
+mask chú giải để chọn detection. Chạy trên 100 frame trải đều mỗi bộ:
+
+```powershell
+.\.venv\Scripts\python.exe -m perception.compare_regions --dataset data\rgbd\apple_1 --prompt apple --samples 100 --output outputs\apple\region_comparison_100.json
+.\.venv\Scripts\python.exe -m perception.compare_regions --dataset data\rgbd\cereal_box_1 --prompt box --samples 100 --output outputs\cereal_box\region_comparison_100.json
+```
+
+| Dataset / vùng | Định vị | Pixel depth hợp lệ ngoài vật theo mask chú giải | Phần vật được vùng chọn bao phủ | Sai khác XYZ trung bình so với mask chú giải |
+| --- | ---: | ---: | ---: | ---: |
+| Táo / box | 79/100 | 17,2% | 94,9% | 5,81 mm |
+| Táo / segmentation | 79/100 | 1,8% | 90,5% | 2,31 mm |
+| Hộp / box | 90/100 | 15,5% | 93,2% | 16,20 mm |
+| Hộp / segmentation | 90/100 | 8,1% | 74,9% | 26,27 mm |
+
+Độ lệch chuẩn của sai khác `(X,Y,Z)` so với mask chú giải trên cùng các frame
+(mm): táo box `(1,17; 4,41; 1,32)`, táo segmentation
+`(0,92; 2,29; 1,06)`; hộp box `(3,57; 17,42; 10,32)`, hộp segmentation
+`(11,40; 29,19; 40,13)`. Đây là chỉ số nhất quán *so với tham chiếu theo frame*,
+không phải mức rung tọa độ của một vật đứng yên.
+
+Segmentation loại bớt nền ở cả hai bộ, nhưng **không luôn cải thiện tọa độ**.
+Với táo nó gần tọa độ từ mask chú giải hơn trên 74/79 frame. Với hộp, hai
+cách gần như ngang nhau theo số frame (46/90 nghiêng về segmentation), nhưng
+vài mask lỗi làm sai khác trung bình của segmentation lớn hơn. Ví dụ frame
+`cereal_box_1_4_160_crop.png`: mask chú giải cho `Z=0,592 m`, box cho
+`0,601 m`, còn segmentation chỉ phủ khoảng 33% mask chú giải và cho
+`Z=0,790 m`. Vì vậy **bounding box đủ làm baseline**, còn segmentation là
+tùy chọn cần kiểm chứng theo loại vật/cảnh, không phải yêu cầu bắt buộc.
+
+JSON chứa kết quả từng frame, IoU, độ phủ depth, vùng ngoài mask chú giải,
+độ phân tán của sai khác tọa độ theo các frame và thống kê trên **các frame mà
+cả hai cách đều định vị được**. Vật trên bàn xoay thay đổi góc nhìn, nên độ
+phân tán này chỉ là thước đo tính nhất quán *so với mask chú giải từng frame*,
+không phải nhiễu thời gian của camera. Hai cách dùng cùng model segmentation,
+vì vậy thử nghiệm này **không so tốc độ** với một model chỉ xuất bounding box.
+Các sai khác XYZ đều dùng **cùng ảnh depth** và cùng định nghĩa tọa độ đại diện;
+chúng không chứng minh sai số tuyệt đối hay tọa độ tâm vật thật.
 
 ## Đánh giá độ chính xác
 

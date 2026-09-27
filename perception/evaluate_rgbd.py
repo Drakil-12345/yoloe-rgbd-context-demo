@@ -91,7 +91,7 @@ def main() -> None:
         origin = load_crop_origin(loc_path)
         reference = localize_mask(depth, reference_mask, intrinsics, origin)
         prediction = model.predict(rgb, device=device, imgsz=640, conf=args.conf,
-                                   verbose=False)[0]
+                                   retina_masks=True, verbose=False)[0]
         row = {
             "frame_index": int(index), "frame": rgb_path.name,
             "reference_xyz_m": reference["xyz_m"],

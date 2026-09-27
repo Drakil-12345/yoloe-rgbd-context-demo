@@ -69,19 +69,31 @@ def load_rgbd(rgb_path: Path, depth_path: Path) -> tuple[np.ndarray, np.ndarray]
     return rgb, depth
 
 
-def detection_mask(result, index: int, shape: tuple[int, int], xyxy: np.ndarray) -> np.ndarray:
-    """Use the YOLOE segmentation polygon, falling back to its bounding box."""
+def box_mask(shape: tuple[int, int], xyxy: np.ndarray) -> np.ndarray:
+    """Rasterize a detection bounding box, clipped to the image."""
     mask = np.zeros(shape, dtype=np.uint8)
-    if result.masks is not None and index < len(result.masks.xy):
-        polygon = np.round(result.masks.xy[index]).astype(np.int32)
-        if len(polygon) >= 3:
-            cv2.fillPoly(mask, [polygon], 1)
-            return mask.astype(bool)
     x1, y1, x2, y2 = np.round(xyxy).astype(int)
     x1, x2 = np.clip([x1, x2], 0, shape[1])
     y1, y2 = np.clip([y1, y2], 0, shape[0])
     mask[y1:y2, x1:x2] = 1
     return mask.astype(bool)
+
+
+def segmentation_mask(result, index: int, shape: tuple[int, int]) -> np.ndarray | None:
+    """Use the original-resolution pixel mask, preserving holes and islands."""
+    if result.masks is None or index >= len(result.masks.data):
+        return None
+    mask = result.masks.data[index].cpu().numpy()
+    if mask.shape != shape:
+        raise ValueError("YOLOE mask must match RGB/depth shape; predict with retina_masks=True")
+    region = mask > 0.5
+    return region if np.any(region) else None
+
+
+def detection_mask(result, index: int, shape: tuple[int, int], xyxy: np.ndarray) -> np.ndarray:
+    """Use the YOLOE pixel mask, falling back to its bounding box."""
+    mask = segmentation_mask(result, index, shape)
+    return mask if mask is not None else box_mask(shape, xyxy)
 
 
 def depth_colormap(depth: np.ndarray) -> np.ndarray:
@@ -164,7 +176,8 @@ def main() -> None:
         model = YOLOE(str(args.model))
         model.set_classes([args.prompt])
         device: int | str = 0 if torch.cuda.is_available() else "cpu"
-        result = model.predict(rgb, device=device, imgsz=args.imgsz, conf=args.conf, verbose=False)[0]
+        result = model.predict(rgb, device=device, imgsz=args.imgsz, conf=args.conf,
+                               retina_masks=True, verbose=False)[0]
         regions = []
         for index, box in enumerate(result.boxes):
             bbox = box.xyxy[0].cpu().numpy()
