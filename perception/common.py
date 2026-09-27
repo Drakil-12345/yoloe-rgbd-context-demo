@@ -9,7 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 LIBRARY_PATH = Path(__file__).with_name("prompt_library.json")
 MODEL_PATH = ROOT / "yoloe-v8s-seg.pt"
-RGBD_DATASET = ROOT / "data" / "rgbd" / "water_bottle_1"
+RGBD_DATASET = ROOT / "data" / "rgbd" / "apple_1"
 OUTPUT_DIR = ROOT / "outputs"
 
 

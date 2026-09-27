@@ -1,103 +1,130 @@
-# YOLOE Perception
+# RGB-D Object Localization
 
-Pipeline perception nhận câu/keyword từ Speech-to-Text, dùng cây khái niệm và
-prompt library để chọn prompt YOLOE. Repo cũng có detection từ ảnh hoặc webcam,
-ước lượng khoảng cách từ RGB-D, tạo point cloud và benchmark prompt.
+Mục tiêu chính của dự án là **xác định tọa độ 3D của một vật thể trong hệ tọa độ
+camera RGB-D** và đánh giá các yếu tố ảnh hưởng đến kết quả. YOLOE tìm vùng vật
+thể trên RGB; depth đã căn chỉnh và thông số hiệu chuẩn camera biến vùng đó
+thành tọa độ mét `(X, Y, Z)`. Point cloud chỉ là công cụ xem dữ liệu phụ trợ.
 
-## Cấu trúc
+## Tọa độ được báo là điểm nào?
+
+`perception.rgbd` trả về một **tọa độ đại diện cho vùng vật thể nhìn thấy**: tia đi qua trung
+bình tọa độ pixel có depth hợp lệ trong mask, lấy `Z` là median depth của các
+pixel đó. Cách này ổn định hơn lấy depth của đúng một pixel; tọa độ nhận được
+**không nhất thiết là một điểm thật trên bề mặt**, không phải tâm thể tích của
+quả táo/hộp hay tọa độ trong phòng. Hệ camera optical: `+X` sang
+phải, `+Y` xuống dưới, `+Z` hướng ra trước. Khoảng cách thẳng từ camera tới điểm
+là `radial_distance_m`; `Z` chỉ là khoảng cách theo trục quang học.
+
+Với ảnh RGB/depth đã căn chỉnh và intrinsics tương ứng:
 
 ```text
-perception/       Mã nguồn: prompts, image, webcam, rgbd, point_cloud, benchmark
-tests/            Kiểm thử cho bộ giải ngữ cảnh
-data/             Ảnh và RGB-D tải về (không commit)
-outputs/          Ảnh, JSON, PLY và video sinh ra (không commit)
+X = (u - cx) * Z / fx
+Y = (v - cy) * Z / fy
+Z = depth_raw * depth_scale_m
 ```
 
-`yoloe-v8s-seg.pt` và `mobileclip_blt.ts` là model/cache tải về, được giữ ở
-thư mục gốc để YOLOE tìm được theo mặc định; cả hai không được commit.
+Ảnh crop Washington dùng `loc.txt` để đưa `(u,v)` về hệ pixel ảnh gốc trước
+khi chiếu 3D. Mã dùng intrinsics zero-indexed `fx=fy=570.3, cx=319, cy=239`,
+tương đương công thức one-indexed `(320,240)` của
+[depthToCloud.m](https://rgbd-dataset.cs.washington.edu/software/depthToCloud.m).
 
-## Cài đặt
+## Cài đặt và dữ liệu
 
-Chạy PowerShell tại thư mục repo:
+Chạy PowerShell trong thư mục repo:
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-Đặt checkpoint `yoloe-v8s-seg.pt` tại thư mục gốc. Nếu chưa có dataset RGB-D,
-tải instance `water_bottle_1` từ
-[Washington RGB-D Object Dataset](https://rgbd-dataset.cs.washington.edu/dataset/)
+Đặt checkpoint `yoloe-v8s-seg.pt` ở thư mục gốc. Dữ liệu, trọng số model và
+output được `.gitignore` loại khỏi Git. Bộ dữ liệu thử là
+[Washington RGB-D Object Dataset](https://rgbd-dataset.cs.washington.edu/dataset/),
+chỉ dùng cho nghiên cứu/giáo dục phi thương mại. Tải bản crop
+[`apple_1.tar`](https://rgbd-dataset.cs.washington.edu/dataset/rgbd-dataset/apple_1.tar)
 và giải nén các file `*_crop.png`, `*_depthcrop.png`, `*_maskcrop.png`, `*_loc.txt`
-vào `data/rgbd/water_bottle_1/`.
+vào `data/rgbd/apple_1/`. Trên máy phát triển đã có sẵn 607 frame táo.
 
-## Chạy
-
-Mọi lệnh chạy từ thư mục gốc bằng `python -m perception.<module>`. Trên Windows,
-thay `python` bằng `.\.venv\Scripts\python.exe` nếu chưa kích hoạt môi trường.
+## Xác định tọa độ trên dataset
 
 ```powershell
-# Xem Tree + Library giải câu STT thành prompt nào
-python -m perception.prompts tìm chai nước màu xanh bên phải
+# Frame 200, dùng YOLOE tìm quả táo; thêm --show để hiện RGB, depth và dấu cộng tọa độ
+.\.venv\Scripts\python.exe -m perception.rgbd --dataset data\rgbd\apple_1 --index 200 --prompt apple --show
 
-# Detect trên ảnh RGB; thay bằng đường dẫn ảnh của bạn
-python -m perception.image --text "tìm chai nước bên phải" --source "C:\path\to\image.jpg" --show
-
-# Camera laptop, hiển thị FPS; Q hoặc Esc để dừng
-python -m perception.webcam --text "tìm chai nước" --camera 0 --mirror
-
-# RGB-D: detect trên RGB và đo khoảng cách từ depth
-python -m perception.rgbd --show
-
-# Tạo point cloud PLY có màu và hiện ảnh preview ba góc nhìn
-python -m perception.point_cloud --index 23 --show
-
-# So sánh các prompt bằng 12 frame RGB-D có mask
-python -m perception.benchmark --samples 12
-
-# Kiểm thử bộ giải ngữ cảnh
-python -m unittest discover -s tests -v
+# Cùng frame, dùng mask chú giải để tính tọa độ tham chiếu trên chính depth map đó
+.\.venv\Scripts\python.exe -m perception.rgbd --dataset data\rgbd\apple_1 --index 200 --prompt apple --mask-source dataset --output outputs\apple\mask_reference
 ```
 
-Các lệnh nhận `--help` để xem tùy chọn như `--model`, `--dataset`, `--index`,
-`--output` và `--duration`. Mặc định ảnh/JSON/PLY được ghi vào `outputs/`.
-Trên máy thử nghiệm, camera 640×480 đạt khoảng 30 FPS, còn 1280×720 đạt khoảng
-10 FPS dù inference YOLOE chỉ mất khoảng 18–21 ms/frame. Khi ưu tiên tốc độ,
-dùng `--width 640 --height 480`; thêm `--record outputs/camera.mp4` để lưu video
-theo thời gian thực.
+Lệnh đầu ghi `outputs/rgbd/localization.jpg` và `localization.json`.
+Trong JSON, `detections[].position.xyz_m` là `[X,Y,Z]`; `depth_coverage`
+là tỷ lệ pixel mask có depth hợp lệ; `depth_mad_m` mô tả độ phân tán depth
+trong vùng sau lọc. Nếu depth không đủ, `status` báo lỗi và `xyz_m` là `null`.
 
-## Tree + Prompt Library
+## Đánh giá độ chính xác
 
-Ví dụ `tìm chai nước to nhất ở bên phải` được chuyển thành:
-
-```text
-concept: water_bottle
-YOLOE prompt: bottle
-spatial: right
-selection: largest
-fallback: water bottle, plastic bottle
+```powershell
+.\.venv\Scripts\python.exe -m perception.evaluate_rgbd --dataset data\rgbd\apple_1 --prompt apple --samples 20 --output outputs\apple\evaluation_20.json
 ```
 
-`perception/prompt_library.json` lưu ontology, từ đồng nghĩa Việt/Anh, các biến
-thể STT và thứ tự prompt. Bộ giải chuẩn hóa dấu và dấu câu, ưu tiên alias khớp
-nguyên từ, dùng fuzzy match khi STT sai nhẹ, rồi tách màu/vị trí/kích thước khỏi
-prompt YOLOE. Nếu prompt đầu không có detection, pipeline thử prompt kế tiếp.
-Vị trí và kích thước được lọc sau khi detect. Có thể thêm object bằng cách sửa
-library mà không phải sửa mã inference.
+Báo cáo có detection/localization rate, mask IoU, độ phủ depth và sai khác XYZ
+giữa vùng YOLOE với mask chú giải. Hai kết quả dùng **cùng depth map**, vì vậy
+`mask_reference_agreement` đo ảnh hưởng của phân vùng vật thể; nó **không đo sai
+số tuyệt đối của camera**. Những frame YOLOE bỏ sót được tính vào localization
+rate, không được lặng lẽ bỏ khỏi mẫu.
 
-Màu hiện được parse nhưng chưa dùng để lọc box. Nhiều target trong một câu được
-báo là ambiguous; tham chiếu hội thoại như `nó` chưa có session state. Benchmark
-trước đây trên 12 frame `water_bottle_1` cho thấy prompt `bottle` đạt detection
-rate 100% ở ngưỡng 0.15 với checkpoint đang dùng.
+Muốn đo sai số tuyệt đối, cần một điểm mục tiêu được định nghĩa rõ và có thể đo
+độc lập trong hệ camera (ví dụ tâm marker trên vật chuẩn có kích thước/hình học
+đã biết). Thuật toán định vị phải xuất tọa độ của **cùng điểm đó**. CSV tham chiếu
+có các cột `frame,x_m,y_m,z_m`, ví dụ:
 
-## RGB-D và point cloud
+```csv
+frame,x_m,y_m,z_m
+apple_1_1_201_crop.png,-0.007,0.012,0.704
+```
 
-YOLOE xử lý ảnh RGB ba kênh. Sau detection/segmentation, chương trình lấy median
-depth trong vùng vật thể để báo khoảng cách mét. Point cloud dùng intrinsics
-Kinect của dataset (`fx = fy = 570.3`, `cx = 320`, `cy = 240`) và crop offset trong
-`loc.txt`; tọa độ PLY tính bằng mét (`+X` phải, `+Y` xuống, `+Z` về trước).
-Mặc định point cloud bỏ nền và depth lệch quá 120 mm so với median vật thể;
-`--all-pixels` hoặc `--depth-outlier-mm 0` thay đổi bộ lọc này.
+Sau đó thêm `--ground-truth-csv đường_dẫn.csv`. Các số ví dụ trên chỉ mô tả
+định dạng, **không phải ground truth**. Với vật không có điểm đánh dấu/định nghĩa
+rõ ràng, không thể gọi tâm vật thể hoặc median bề mặt là ground truth. Khi đo
+camera thật, cần ghi nhiều khoảng cách/vị trí, kiểm tra hiệu chuẩn và RGB-depth
+alignment, báo MAE/RMSE XYZ, Euclidean error, depth fill rate và tỷ lệ định vị.
+[Tài liệu Intel về depth quality](https://www.intel.com/content/dam/support/us/en/documents/emerging-technologies/intel-realsense-technology/RealSense_DepthQualityTesting.pdf)
+cũng phân biệt accuracy so với khoảng cách chuẩn, fill rate và nhiễu.
 
-Nguồn dữ liệu: Kevin Lai, Liefeng Bo, Xiaofeng Ren, Dieter Fox,
+## Dùng cặp ảnh từ camera RGB-D khác
+
+Lưu một ảnh RGB và một ảnh depth **đã căn chỉnh**, cùng kích thước. Depth phải
+là PNG 16-bit một kênh. Tạo JSON intrinsics của **hệ ảnh đã căn chỉnh**; nếu
+depth lưu bằng mm thì `depth_scale_m=0.001`:
+
+```json
+{"fx": 600.0, "fy": 600.0, "cx": 319.5, "cy": 239.5, "depth_scale_m": 0.001}
+```
+
+Các số trên chỉ là ví dụ; phải thay bằng calibration của camera đang dùng.
+
+```powershell
+.\.venv\Scripts\python.exe -m perception.rgbd --rgb data\my_camera\rgb.png --depth data\my_camera\depth.png --intrinsics data\my_camera\intrinsics.json --prompt apple --show
+```
+
+Nếu dùng ảnh crop, truyền thêm `--crop-origin X Y` (tọa độ góc trên trái của
+crop trong ảnh gốc, zero-indexed). Với ảnh full frame không cần tùy chọn này.
+Webcam RGB của laptop không cung cấp depth nên không thể dùng để đo XYZ.
+
+## Công cụ phụ trợ
+
+```powershell
+# Xem point cloud từ mask chú giải của frame táo
+.\.venv\Scripts\python.exe -m perception.point_cloud --dataset data\rgbd\apple_1 --index 200 --show
+
+# Thử Tree + Library cho câu Speech-to-Text
+.\.venv\Scripts\python.exe -m perception.prompts tìm chai nước bên phải
+
+# Kiểm thử
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+```
+
+`perception/` chứa code định vị, hình học, đánh giá và các demo còn lại;
+`tests/` chứa kiểm thử. `data/` giữ input tải về, `outputs/` giữ ảnh và JSON.
+
+Nguồn dataset: Kevin Lai, Liefeng Bo, Xiaofeng Ren, Dieter Fox,
 "A Large-Scale Hierarchical Multi-View RGB-D Object Dataset," ICRA 2011.

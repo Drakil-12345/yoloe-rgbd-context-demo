@@ -1,1 +1,1 @@
-"""Deterministic context and prompt optimization for YOLOE."""
+"""RGB-D object localization, evaluation, and YOLOE perception tools."""

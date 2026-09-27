@@ -15,11 +15,12 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 
 from .common import OUTPUT_DIR, RGBD_DATASET, natural_key
+from .geometry import WASHINGTON_INTRINSICS
 
 
-FOCAL_LENGTH_PX = 570.3
-PRINCIPAL_POINT = (320.0, 240.0)
-MM_PER_M = 1000.0
+FOCAL_LENGTH_PX = WASHINGTON_INTRINSICS.fx
+PRINCIPAL_POINT = (WASHINGTON_INTRINSICS.cx + 1, WASHINGTON_INTRINSICS.cy + 1)
+MM_PER_M = 1 / WASHINGTON_INTRINSICS.depth_scale_m
 
 
 def parse_args() -> argparse.Namespace:
@@ -145,7 +146,7 @@ def set_equal_3d_axes(axis, xyz: np.ndarray) -> None:
 
 
 def save_preview(path: Path, points: np.ndarray, colors: np.ndarray, frame_name: str) -> None:
-    # Flip Y only for plotting so the bottle appears upright. PLY preserves the
+    # Flip Y only for plotting so the object appears upright. PLY preserves the
     # official camera convention: +X right, +Y down, +Z forward.
     plot_points = points.copy()
     plot_points[:, 1] *= -1
@@ -233,11 +234,11 @@ def main() -> None:
         "coordinate_system": "+X right, +Y down, +Z forward; meters",
         "object_mask_only": not args.all_pixels,
         "depth_outlier_threshold_mm": args.depth_outlier_mm if not args.all_pixels else None,
+        "valid_depth_fraction_in_mask": float(np.count_nonzero((mask > 0) & (depth_mm > 0)) / max(np.count_nonzero(mask), 1)),
         "point_count": len(points),
         "bounds_m": {"min_xyz": points.min(axis=0).tolist(), "max_xyz": points.max(axis=0).tolist()},
         "centroid_m": points.mean(axis=0).tolist(),
         "median_z_m": float(np.median(points[:, 2])),
-        "sensor_note": "Transparent bottle surfaces have missing/noisy Kinect depth, so the cloud is partial.",
         "ply": str(ply_path.resolve()),
         "preview": str(preview_path.resolve()),
     }
