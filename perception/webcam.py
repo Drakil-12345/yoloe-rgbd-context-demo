@@ -1,4 +1,4 @@
-"""Run Tree + Prompt Library + YOLOE on a live laptop camera with FPS metrics."""
+"""Run YOLOE on a live RGB camera with direct or STT-resolved prompts and FPS metrics."""
 
 from __future__ import annotations
 
@@ -24,6 +24,7 @@ from .prompts import PromptOptimizer
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--text", default="chai nước", help="Keyword/utterance received from Speech-to-Text.")
+    parser.add_argument("--prompt", help="Direct YOLOE object class, bypassing the STT prompt library.")
     parser.add_argument("--camera", type=int, default=0, help="OpenCV camera index.")
     parser.add_argument("--backend", choices=["auto", "dshow", "msmf", "any"], default="auto")
     parser.add_argument("--width", type=int, default=1280)
@@ -37,6 +38,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--no-display", action="store_true", help="Run without an OpenCV preview window.")
     parser.add_argument("--report-interval", type=float, default=2.0)
     parser.add_argument("--record", type=Path, help="Optional annotated MP4 output path.")
+    parser.add_argument("--snapshot", type=Path,
+                        help="Save the highest-confidence annotated frame (or the last frame if none detected).")
     parser.add_argument("--library", type=Path, default=LIBRARY_PATH)
     parser.add_argument("--model", type=Path, default=MODEL_PATH)
     parser.add_argument("--output", type=Path, default=OUTPUT_DIR / "webcam_fps.json")
@@ -135,8 +138,8 @@ def build_report(
     elapsed = time.perf_counter() - started_at
     return {
         "timestamp": datetime.now().astimezone().isoformat(),
-        "stt_text": args.text,
-        "resolver": asdict(resolved),
+        "stt_text": None if args.prompt else args.text,
+        "resolver": asdict(resolved) if resolved is not None else None,
         "yoloe_prompt": prompt,
         "model": str(args.model.resolve()),
         "device": device_name,
@@ -149,6 +152,7 @@ def build_report(
             "width": int(capture.get(cv2.CAP_PROP_FRAME_WIDTH)),
             "height": int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT)),
             "reported_capture_fps": float(capture.get(cv2.CAP_PROP_FPS)),
+            "has_depth": False,
         },
         "frames": len(frame_durations),
         "elapsed_seconds": elapsed,
@@ -163,7 +167,8 @@ def build_report(
             "median": float(statistics.median(inference_times)) if inference_times else None,
             "p95": percentile(inference_times, 95),
         },
-        "measurement_note": "Model warm-up is excluded. End-to-end FPS includes capture, preprocess, inference, postprocess, drawing, and display wait.",
+        "measurement_note": "Model warm-up is excluded. End-to-end FPS includes capture, preprocess, inference, postprocess, drawing" + ("." if args.no_display else ", and display wait."),
+        "coordinate_note": "A monocular RGB webcam provides pixel coordinates only; metric XYZ is not measured by this test.",
     }
 
 
@@ -193,14 +198,17 @@ def write_timed_frame(
 
 def main() -> None:
     args = parse_args()
-    optimizer = PromptOptimizer(args.library)
-    resolved = optimizer.resolve(args.text)
-    if resolved.concept is None:
-        raise SystemExit(f"Unknown object in STT input: {args.text!r}")
-    if resolved.ambiguous_with:
-        raise SystemExit(f"Ambiguous target: {resolved.concept}, {', '.join(resolved.ambiguous_with)}")
-
-    prompt = resolved.optimized_prompt
+    if args.prompt:
+        resolved = None
+        prompt = args.prompt
+    else:
+        optimizer = PromptOptimizer(args.library)
+        resolved = optimizer.resolve(args.text)
+        if resolved.concept is None:
+            raise SystemExit(f"Unknown object in STT input: {args.text!r}")
+        if resolved.ambiguous_with:
+            raise SystemExit(f"Ambiguous target: {resolved.concept}, {', '.join(resolved.ambiguous_with)}")
+        prompt = resolved.optimized_prompt
     device: int | str = 0 if torch.cuda.is_available() else "cpu"
     device_name = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU"
     model = YOLOE(str(args.model))
@@ -212,9 +220,13 @@ def main() -> None:
     previous_recorded_frame = None
     recorded_frames = 0
     recording_fps = None
-    window_name = "YOLOE webcam | Tree + Prompt Library"
+    last_annotated = None
+    window_name = "YOLOE webcam | RGB only"
     frame_durations: list[float] = []
     inference_times: list[float] = []
+    detection_counts: list[int] = []
+    best_detection_confidence = None
+    best_annotated = None
     ema_fps = 0.0
     last_console_report = time.perf_counter()
     started_at = time.perf_counter()
@@ -256,9 +268,20 @@ def main() -> None:
                 verbose=False,
             )[0]
             inference_ms = float(result.speed.get("inference", 0.0))
-            kept = filter_by_context(result, frame.shape, resolved.spatial, resolved.selection)
+            kept = filter_by_context(
+                result, frame.shape,
+                resolved.spatial if resolved is not None else [],
+                resolved.selection if resolved is not None else None,
+            )
             annotated = result[kept].plot(img=frame.copy()) if kept else frame.copy()
             draw_hud(annotated, prompt, ema_fps, inference_ms, len(kept), device_name)
+            last_annotated = annotated
+            detection_counts.append(len(kept))
+            if kept:
+                top_confidence = max(float(result.boxes[index].conf.item()) for index in kept)
+                if best_detection_confidence is None or top_confidence > best_detection_confidence:
+                    best_detection_confidence = top_confidence
+                    best_annotated = annotated.copy()
 
             if args.record:
                 if writer is None:
@@ -344,6 +367,18 @@ def main() -> None:
                 "encoded_frames": recorded_frames,
                 "duration_seconds": recorded_frames / recording_fps,
             }
+        final_report["detection"] = {
+            "frames_with_detections": sum(count > 0 for count in detection_counts),
+            "fraction_of_frames": sum(count > 0 for count in detection_counts) / len(detection_counts) if detection_counts else None,
+            "peak_confidence": best_detection_confidence,
+        }
+        snapshot_frame = best_annotated if best_annotated is not None else last_annotated
+        if args.snapshot is not None and snapshot_frame is not None:
+            args.snapshot.parent.mkdir(parents=True, exist_ok=True)
+            if cv2.imwrite(str(args.snapshot), snapshot_frame):
+                final_report["snapshot"] = str(args.snapshot.resolve())
+            else:
+                final_report["snapshot_error"] = f"Could not save snapshot: {args.snapshot}"
         save_report(args.output, final_report)
         capture.release()
         if writer is not None:

@@ -166,6 +166,23 @@ Nếu dùng ảnh crop, truyền thêm `--crop-origin X Y` (tọa độ góc tr�
 crop trong ảnh gốc, zero-indexed). Với ảnh full frame không cần tùy chọn này.
 Webcam RGB của laptop không cung cấp depth nên không thể dùng để đo XYZ.
 
+## Thử trước bằng webcam RGB 2D
+
+Trên máy phát triển, webcam thật là camera `0` qua backend `msmf` (camera `1`
+là OBS Virtual Camera). Đặt chai nước trong khung hình, đủ sáng, rồi chạy từ
+PowerShell để mở cửa sổ nhận diện và hiện FPS:
+
+```powershell
+.\.venv\Scripts\python.exe -m perception.webcam --text "chai nước" --camera 0 --backend msmf --width 640 --height 480 --mirror --snapshot outputs\webcam_2d\bottle_snapshot.jpg --output outputs\webcam_2d\fps.json
+```
+
+Nhấn `Q` hoặc `Esc` để dừng. Tree + Library đổi `chai nước` thành prompt YOLOE
+`bottle`; có thể thay bằng `--prompt bottle` để thử YOLOE trực tiếp. JSON ghi
+FPS toàn luồng, thời gian suy luận, số frame có detection và confidence cao nhất.
+`--snapshot` lưu frame có detection mạnh nhất. Thêm `--duration 10 --no-display`
+để chạy benchmark 10 giây không mở cửa sổ. Webcam 2D chỉ kiểm tra detection,
+luồng xử lý và FPS; nó không cung cấp phép đo `Z` hay độ chính xác XYZ theo mét.
+
 ## Công cụ phụ trợ
 
 ```powershell
