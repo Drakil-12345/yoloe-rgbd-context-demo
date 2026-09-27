@@ -1,4 +1,4 @@
-"""Locate an object's visible surface in the RGB-D camera coordinate frame."""
+"""Locate an object in the RGB-D camera coordinate frame."""
 
 from __future__ import annotations
 
@@ -32,6 +32,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--depth-outlier-m", type=float, default=0.12)
     parser.add_argument("--min-valid-pixels", type=int, default=20)
     parser.add_argument("--conf", type=float, default=0.15)
+    parser.add_argument("--all-detections", action="store_true",
+                        help="Report every YOLOE region; default: one highest-confidence target.")
     parser.add_argument("--imgsz", type=int, default=640)
     parser.add_argument("--model", type=Path, default=MODEL_PATH)
     parser.add_argument("--output", type=Path, default=OUTPUT_DIR / "rgbd")
@@ -162,6 +164,8 @@ def main() -> None:
             regions.append((detection_mask(result, index, depth.shape, bbox),
                             result.names[int(box.cls.item())], float(box.conf.item()),
                             [float(value) for value in bbox]))
+        if not args.all_detections and regions:
+            regions = [max(regions, key=lambda region: region[2])]
     else:
         if mask_path is None:
             raise FileNotFoundError("Dataset mode requires *_maskcrop.png")

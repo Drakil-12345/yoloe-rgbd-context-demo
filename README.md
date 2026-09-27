@@ -59,6 +59,32 @@ Lệnh đầu ghi `outputs/rgbd/localization.jpg` và `localization.json`.
 Trong JSON, `detections[].position.xyz_m` là `[X,Y,Z]`; `depth_coverage`
 là tỷ lệ pixel mask có depth hợp lệ; `depth_mad_m` mô tả độ phân tán depth
 trong vùng sau lọc. Nếu depth không đủ, `status` báo lỗi và `xyz_m` là `null`.
+Mặc định lấy một vùng có confidence cao nhất cho mục tiêu cần định vị; thêm
+`--all-detections` khi cần xem tất cả vùng YOLOE phát hiện.
+
+### Thử thêm một vật thể khác
+
+Tải [`cereal_box_1.tar`](https://rgbd-dataset.cs.washington.edu/dataset/rgbd-dataset/cereal_box_1.tar)
+và giải nén RGB/depth/mask/loc vào `data/rgbd/cereal_box_1/` (570 frame trên máy
+phát triển). Chạy:
+
+```powershell
+.\.venv\Scripts\python.exe -m perception.rgbd --dataset data\rgbd\cereal_box_1 --index 200 --prompt box --show
+.\.venv\Scripts\python.exe -m perception.evaluate_rgbd --dataset data\rgbd\cereal_box_1 --prompt box --samples 100 --output outputs\cereal_box\evaluation_100_box_prompt.json
+```
+
+Kết quả trên 100 frame trải đều mỗi dataset (`--conf 0.15`):
+
+| Dataset / prompt | Định vị thành công | Mask IoU trung bình | Sai khác Euclidean trung bình so với mask chú giải |
+| --- | ---: | ---: | ---: |
+| `apple_1` / `apple` | 79/100 | 0,887 | 2,56 mm (79 frame) |
+| `cereal_box_1` / `cereal box` | 70/100 | 0,738 | 22,05 mm (70 frame) |
+| `cereal_box_1` / `box` | 90/100 | 0,734 | 22,64 mm (90 frame) |
+
+Prompt `box` tăng tỷ lệ định vị cho bộ hộp ngũ cốc đơn vật thể, nhưng đây không
+phải bằng chứng nó tốt hơn trong cảnh có nhiều hộp. Sai khác tọa độ trong bảng
+chỉ so với mask chú giải trên cùng depth map, **không phải độ chính xác tuyệt đối
+của camera**.
 
 ## Đánh giá độ chính xác
 
