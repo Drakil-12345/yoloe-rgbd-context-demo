@@ -117,6 +117,7 @@ def main() -> None:
     last_mtime = 0
     last_frame_wall = started
     previous_frame_wall: float | None = None
+    previous_stamp: tuple[int, int] | None = None
     display: np.ndarray | None = None
     stale_reported = False
     count = 0
@@ -133,6 +134,12 @@ def main() -> None:
                         time.sleep(0.05)
                         continue
                     last_mtime = mtime
+                    if previous_stamp is not None and stamp < previous_stamp:
+                        rolling_accuracy = RollingAccuracy()
+                        previous_frame_wall = None
+                        print("Gazebo simulation time reset; restarted accuracy window.",
+                              flush=True)
+                    previous_stamp = stamp
                     frame_start = time.monotonic()
                     result = model.predict(rgb, device=device, imgsz=args.imgsz,
                                            conf=args.conf, retina_masks=True, verbose=False)[0]
@@ -182,15 +189,19 @@ def main() -> None:
                     if args.max_frames is not None and count >= args.max_frames:
                         break
             if not stale_reported and time.monotonic() - last_frame_wall > 2.0:
-                print("No new RGB-D frame for 2 s; check Gazebo Play and ROS bridge.", flush=True)
+                print("No new RGB-D frame for 2 s; press Gazebo Play after Reset, "
+                      "or check the ROS bridge.", flush=True)
                 stale_reported = True
                 if display is not None and not args.no_display:
                     stale = display.copy()
-                    cv2.rectangle(stale, (0, stale.shape[0] - 38),
+                    cv2.rectangle(stale, (0, stale.shape[0] - 58),
                                   (stale.shape[1], stale.shape[0]), (0, 0, 160), -1)
-                    cv2.putText(stale, "NO NEW FRAME - check Gazebo Play / ROS bridge",
-                                (12, stale.shape[0] - 12), cv2.FONT_HERSHEY_SIMPLEX,
-                                0.7, (255, 255, 255), 2, cv2.LINE_AA)
+                    cv2.putText(stale, "NO NEW RGB-D FRAME",
+                                (12, stale.shape[0] - 34), cv2.FONT_HERSHEY_SIMPLEX,
+                                0.65, (255, 255, 255), 2, cv2.LINE_AA)
+                    cv2.putText(stale, "After Reset, press Play; or check ROS bridge",
+                                (12, stale.shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX,
+                                0.55, (255, 255, 255), 1, cv2.LINE_AA)
                     cv2.imshow(window, stale)
             if not args.no_display:
                 key = cv2.waitKey(30) & 0xFF

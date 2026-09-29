@@ -298,6 +298,9 @@ gần nhất. Với một mục tiêu, phép đo dùng **khung YOLOE confidence 
 không dùng mask chuẩn để chọn khung đẹp hơn. `hit@0.5` là tỷ lệ frame có nón
 nhìn thấy mà khung này đạt IoU ≥ 0,5; precision tính mỗi khung YOLOE thừa là false positive. Khi
 không thấy vật, frame vẫn được thống kê đúng là miss hoặc false positive.
+Sau khi bấm **Reset simulation**, Gazebo có thể chuyển sang **Pause**: bấm **Play**
+(nút tam giác góc dưới trái) để phát frame mới sang YOLOE. Khi thời gian mô phỏng
+quay về 0, thống kê accuracy của cửa sổ YOLOE cũng bắt đầu lại từ frame mới.
 Nếu Gazebo bị Pause quá 2 giây, cửa sổ hiện cảnh báo thiếu frame. Nhấn `Q`
 hoặc `Esc` để đóng YOLOE; `Ctrl+C` dừng bộ chuyển frame. Có thể thay prompt,
 chọn `--region box` để so sánh với segmentation, hoặc chạy tự động bằng
