@@ -214,7 +214,10 @@ Máy phát triển có Gazebo Sim 8 (Harmonic) và ROS 2 Jazzy trong WSL Ubuntu 
 World gọn `sim/perception_demo.sdf` giữ lại một cảm biến RGB-D, khối đỏ từ ví dụ
 `sensors_demo.sdf` của Gazebo và một nón dựng bằng hình khối ngay trong world.
 Giao diện chỉ hiện ảnh RGB-D
-màu và depth; không hiện các bảng thermal, lidar hay camera phụ. Cảm biến phát RGB,
+màu và depth; không hiện các bảng thermal, lidar hay camera phụ. World còn có
+một segmentation camera **ẩn**, cùng pose/FOV/độ phân giải với RGB-D, gán nhãn
+`1` cho nón và `2` cho hộp để đánh giá YOLOE; YOLOE không nhận mask này làm input.
+Cảm biến phát RGB,
 depth float32 tính bằng mét và `camera_info`. Script capture chờ **RGB và depth
 cùng timestamp**, đổi depth sang PNG 16-bit mm, lưu intrinsics từ `camera_info`
 để `perception.rgbd` dùng được. Đây là bài kiểm tra **một frame**, chưa phải
@@ -235,7 +238,8 @@ source /opt/ros/jazzy/setup.bash
 ros2 run ros_gz_bridge parameter_bridge \
   '/rgbd_camera/image@sensor_msgs/msg/Image[gz.msgs.Image' \
   '/rgbd_camera/depth_image@sensor_msgs/msg/Image[gz.msgs.Image' \
-  '/rgbd_camera/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo'
+  '/rgbd_camera/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo' \
+  '/rgbd_camera/segmentation/labels_map@sensor_msgs/msg/Image[gz.msgs.Image'
 ```
 
 Terminal 3 lưu một cặp ảnh đã đồng bộ (đường dẫn ví dụ của máy phát triển):
@@ -266,7 +270,7 @@ và `outputs/gazebo_minimal` (không đẩy lên Git).
 ### Chạy YOLOE trực tiếp trên Gazebo
 
 Giữ Gazebo và ROS bridge ở hai terminal đầu như trên, rồi trong WSL chạy bộ
-chuyển frame RGB-D **cùng timestamp**. Nó chỉ ghi frame mới nhất (tối đa 5 Hz),
+chuyển RGB, depth và mask chuẩn **cùng timestamp**. Nó chỉ ghi frame mới nhất (tối đa 5 Hz),
 không tích lũy một dataset lớn:
 
 ```bash
@@ -284,6 +288,12 @@ Trong PowerShell ở repo, mở cửa sổ kết quả YOLOE:
 Kéo `rgbd_camera` hoặc `traffic_cone` trong Gazebo khi mô phỏng đang **Play**.
 Cửa sổ kết quả cập nhật RGB, depth, vùng YOLOE, `(X,Y,Z)` theo hệ camera optical
 và `radial_distance_m` (khoảng cách thẳng tới tọa độ đại diện vùng nhìn thấy).
+Nó còn hiển thị confidence cao nhất của YOLOE trong frame, IoU với mask chuẩn
+Gazebo, sai khác XYZ tính bằng cm và `hit@0.5` / precision trên tối đa 50 frame
+gần nhất. Với một mục tiêu, phép đo dùng **khung YOLOE confidence cao nhất**;
+không dùng mask chuẩn để chọn khung đẹp hơn. `hit@0.5` là tỷ lệ frame có nón
+nhìn thấy mà khung này đạt IoU ≥ 0,5; precision tính mỗi khung YOLOE thừa là false positive. Khi
+không thấy vật, frame vẫn được thống kê đúng là miss hoặc false positive.
 Nếu Gazebo bị Pause quá 2 giây, cửa sổ hiện cảnh báo thiếu frame. Nhấn `Q`
 hoặc `Esc` để đóng YOLOE; `Ctrl+C` dừng bộ chuyển frame. Có thể thay prompt,
 chọn `--region box` để so sánh với segmentation, hoặc chạy tự động bằng
@@ -292,7 +302,12 @@ chọn `--region box` để so sánh với segmentation, hoặc chạy tự đ�
 `live_update_fps` là tốc độ cập nhật toàn luồng, chịu giới hạn bởi `--max-rate`
 và thời gian YOLOE; `inference_and_localization_ms` là thời gian xử lý một frame.
 Các tọa độ là **so với camera đang di chuyển**, không phải tọa độ world của Gazebo.
-Chúng mô tả vùng bề mặt nhìn thấy, không mặc nhiên là tâm thật của vật.
+Chúng mô tả vùng bề mặt nhìn thấy, không mặc nhiên là tâm thật của vật. Sai khác
+XYZ dùng mask chuẩn và YOLOE trên **cùng depth**, nên đo ảnh hưởng của việc chọn
+vùng vật, **không phải sai số tuyệt đối của camera**. Những frame lặp lại của cảnh
+đứng yên không phải nhiều mẫu độc lập để kết luận độ chính xác tổng quát.
+Mask chuẩn chỉ được định nghĩa cho prompt `traffic cone` / `cone` và `box` /
+`red box`; prompt khác vẫn chạy YOLOE nhưng báo `Gazebo GT: unavailable`.
 
 ## Thử trước bằng webcam RGB 2D
 

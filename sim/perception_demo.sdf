@@ -128,6 +128,9 @@
     </model>
     <model name="box">
       <pose>0 -1 0.5 0 0 0</pose>
+      <plugin filename="gz-sim-label-system" name="gz::sim::systems::Label">
+        <label>2</label>
+      </plugin>
       <link name="box_link">
         <inertial>
           <inertia>
@@ -205,11 +208,25 @@
           <topic>rgbd_camera</topic>
           <enable_metrics>true</enable_metrics>
         </sensor>
+        <sensor name="segmentation_camera" type="segmentation">
+          <topic>rgbd_camera/segmentation</topic>
+          <camera>
+            <segmentation_type>semantic</segmentation_type>
+            <horizontal_fov>1.047</horizontal_fov>
+            <image><width>320</width><height>240</height></image>
+            <clip><near>0.1</near><far>100</far></clip>
+          </camera>
+          <always_on>1</always_on>
+          <update_rate>30</update_rate>
+        </sensor>
       </link>
     </model>
     <model name="traffic_cone">
       <static>true</static>
       <pose>0 1 0.4 0 0 0</pose>
+      <plugin filename="gz-sim-label-system" name="gz::sim::systems::Label">
+        <label>1</label>
+      </plugin>
       <link name="body">
         <collision name="cone_collision">
           <geometry><cone><radius>0.14</radius><length>0.7</length></cone></geometry>

@@ -15,6 +15,7 @@ from ultralytics import YOLOE
 from perception.common import MODEL_PATH, OUTPUT_DIR
 from perception.geometry import CameraIntrinsics, localize_mask
 from perception.rgbd import box_mask, detection_mask, render_result
+from .accuracy import TARGET_LABELS, RollingAccuracy, evaluate_frame
 
 
 def parse_args() -> argparse.Namespace:
@@ -32,30 +33,67 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def read_frame(path: Path) -> tuple[np.ndarray, np.ndarray, CameraIntrinsics, tuple[int, int]]:
+def read_frame(path: Path) -> tuple[np.ndarray, np.ndarray, np.ndarray,
+                                    CameraIntrinsics, tuple[int, int]]:
     with np.load(path, allow_pickle=False) as frame:
         rgb = frame["bgr"]
         depth = frame["depth_mm"]
+        labels = frame["labels"]
         fx, fy, cx, cy = frame["intrinsics"].tolist()
         stamp = tuple(int(value) for value in frame["stamp"])
-    if rgb.ndim != 3 or rgb.shape[2] != 3 or depth.shape != rgb.shape[:2] or depth.dtype != np.uint16:
-        raise ValueError("Expected aligned BGR and uint16 millimetre depth arrays")
-    return rgb, depth, CameraIntrinsics(fx, fy, cx, cy), stamp
+    if (rgb.ndim != 3 or rgb.shape[2] != 3 or depth.shape != rgb.shape[:2] or
+            depth.dtype != np.uint16 or labels.shape != depth.shape or
+            labels.dtype != np.uint8):
+        raise ValueError("Expected aligned BGR, depth and semantic labels")
+    return rgb, depth, labels, CameraIntrinsics(fx, fy, cx, cy), stamp
 
 
 def localize_detections(result, depth: np.ndarray, intrinsics: CameraIntrinsics,
-                        region_mode: str) -> list[dict]:
+                        region_mode: str) -> tuple[list[dict], list[np.ndarray]]:
     detections = []
+    regions = []
     for index, box in enumerate(result.boxes):
         bbox = box.xyxy[0].cpu().numpy()
         region = (box_mask(depth.shape, bbox) if region_mode == "box"
                   else detection_mask(result, index, depth.shape, bbox))
+        regions.append(region)
         position = localize_mask(depth, region, intrinsics, min_valid_pixels=5)
         detections.append({"class": result.names[int(box.cls.item())],
                            "confidence": float(box.conf.item()),
                            "bbox_xyxy": [float(value) for value in bbox],
                            "region": region_mode, "position": position})
-    return detections
+    return detections, regions
+
+
+def add_accuracy_footer(display: np.ndarray, detections: list[dict],
+                        accuracy: dict | None, rolling: dict | None) -> np.ndarray:
+    footer = cv2.copyMakeBorder(display, 0, 68, 0, 0, cv2.BORDER_CONSTANT,
+                                value=(25, 25, 25))
+    confidence = max((item["confidence"] for item in detections), default=None)
+    confidence_text = (f"YOLOE confidence: {confidence * 100:.1f}%" if confidence is not None
+                       else "YOLOE confidence: no detection")
+    if accuracy is None:
+        metric_text = "Gazebo GT: unavailable for this prompt"
+    elif accuracy["gt_pixels"] == 0:
+        metric_text = f"Gazebo GT: target not visible ({accuracy['status']})"
+    else:
+        error = accuracy["xyz_error_m"]
+        error_text = f"{error * 100:.1f} cm" if error is not None else "N/A"
+        metric_text = (f"GT mask IoU: {accuracy['iou']:.2f} | "
+                       f"XYZ difference: {error_text} (same depth)")
+    cv2.putText(footer, confidence_text, (10, display.shape[0] + 24),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.62, (255, 255, 255), 2, cv2.LINE_AA)
+    cv2.putText(footer, metric_text, (10, display.shape[0] + 52),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.57, (255, 255, 255), 1, cv2.LINE_AA)
+    if rolling and rolling["frames"]:
+        hit = rolling["hit_rate_iou_50"]
+        precision = rolling["precision_iou_50"]
+        hit_text = f"{hit * 100:.0f}%" if hit is not None else "N/A"
+        precision_text = f"{precision * 100:.0f}%" if precision is not None else "N/A"
+        cv2.putText(footer, f"hit@0.5 {hit_text} | precision {precision_text} / {rolling['frames']} frames",
+                    (footer.shape[1] - 430, display.shape[0] + 24),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 1, cv2.LINE_AA)
+    return footer
 
 
 def main() -> None:
@@ -68,6 +106,8 @@ def main() -> None:
         raise SystemExit("--max-frames must be positive")
     model = YOLOE(str(args.model))
     model.set_classes([args.prompt])
+    target_label = TARGET_LABELS.get(args.prompt.casefold().strip())
+    rolling_accuracy = RollingAccuracy()
     device: int | str = 0 if torch.cuda.is_available() else "cpu"
     args.output.mkdir(parents=True, exist_ok=True)
     window = "Gazebo RGB-D + YOLOE"
@@ -88,7 +128,7 @@ def main() -> None:
                 mtime = args.input.stat().st_mtime_ns
                 if mtime != last_mtime:
                     try:
-                        rgb, depth, intrinsics, stamp = read_frame(args.input)
+                        rgb, depth, labels, intrinsics, stamp = read_frame(args.input)
                     except (OSError, ValueError, KeyError):
                         time.sleep(0.05)
                         continue
@@ -96,7 +136,11 @@ def main() -> None:
                     frame_start = time.monotonic()
                     result = model.predict(rgb, device=device, imgsz=args.imgsz,
                                            conf=args.conf, retina_masks=True, verbose=False)[0]
-                    detections = localize_detections(result, depth, intrinsics, args.region)
+                    detections, regions = localize_detections(result, depth, intrinsics, args.region)
+                    accuracy = (evaluate_frame(labels, target_label, depth, intrinsics,
+                                               detections, regions)
+                                if target_label is not None else None)
+                    rolling = rolling_accuracy.add(accuracy) if accuracy is not None else None
                     elapsed = time.monotonic() - frame_start
                     pipeline_fps = (1 / (frame_start - previous_frame_wall)
                                     if previous_frame_wall is not None and
@@ -109,8 +153,12 @@ def main() -> None:
                               "coordinate_frame": "camera_optical: +X right, +Y down, +Z forward",
                               "inference_and_localization_ms": round(elapsed * 1000, 1),
                               "live_update_fps": round(pipeline_fps, 2) if pipeline_fps else None,
-                              "detections": detections}
+                              "detections": detections,
+                              "gazebo_ground_truth": {"target_label": target_label,
+                                  "comparison": "YOLOE region vs simulator semantic mask; XYZ uses same depth",
+                                  "per_frame": accuracy, "rolling_last_50_frames": rolling}}
                     display = render_result(rgb, depth, detections, (0.0, 0.0), height=480)
+                    display = add_accuracy_footer(display, detections, accuracy, rolling)
                     rate_label = f"{pipeline_fps:.1f} FPS" if pipeline_fps else "warming up"
                     cv2.putText(display, f"live {rate_label} | infer {elapsed * 1000:.0f} ms",
                                 (display.shape[1] - 340, 28), cv2.FONT_HERSHEY_SIMPLEX,
@@ -123,7 +171,9 @@ def main() -> None:
                         for item in detections:
                             pos = item["position"]
                             print(f"frame={count} {item['class']} conf={item['confidence']:.2f} "
-                                  f"XYZ={pos['xyz_m']} distance={pos['radial_distance_m']} m",
+                                  f"XYZ={pos['xyz_m']} distance={pos['radial_distance_m']} m "
+                                  f"IoU={accuracy['iou'] if accuracy else None} "
+                                  f"XYZ_error_m={accuracy['xyz_error_m'] if accuracy else None}",
                                   flush=True)
                     else:
                         print(f"frame={count} no {args.prompt!r} detection", flush=True)
