@@ -211,17 +211,22 @@ Webcam RGB của laptop không cung cấp depth nên không thể dùng để đ
 ## Thử RGB-D không cần camera thật bằng Gazebo
 
 Máy phát triển có Gazebo Sim 8 (Harmonic) và ROS 2 Jazzy trong WSL Ubuntu 24.04.
-World mẫu `sensors_demo.sdf` của Gazebo có cảm biến `rgbd_camera` phát RGB,
+World gọn `sim/perception_demo.sdf` giữ lại một cảm biến RGB-D, khối đỏ từ ví dụ
+`sensors_demo.sdf` của Gazebo và một nón dựng bằng hình khối ngay trong world.
+Giao diện chỉ hiện ảnh RGB-D
+màu và depth; không hiện các bảng thermal, lidar hay camera phụ. Cảm biến phát RGB,
 depth float32 tính bằng mét và `camera_info`. Script capture chờ **RGB và depth
 cùng timestamp**, đổi depth sang PNG 16-bit mm, lưu intrinsics từ `camera_info`
 để `perception.rgbd` dùng được. Đây là bài kiểm tra **một frame**, chưa phải
 pipeline real-time.
 
-Mở ba terminal WSL. Terminal 1 chạy mô phỏng không cần cửa sổ:
+Mở ba terminal WSL. Terminal 1 chạy Gazebo với giao diện:
 
 ```bash
-gz sim -s -r sensors_demo.sdf
+gz sim -r /mnt/d/yoloe_test/sim/perception_demo.sdf
 ```
+
+Thêm `-s` nếu chỉ muốn chạy server không mở cửa sổ Gazebo.
 
 Terminal 2 nối ba topic sang ROS 2:
 
@@ -238,25 +243,25 @@ Terminal 3 lưu một cặp ảnh đã đồng bộ (đường dẫn ví dụ c�
 ```bash
 source /opt/ros/jazzy/setup.bash
 python3 /mnt/d/yoloe_test/sim/capture_rgbd_ros.py \
-  --output /mnt/d/yoloe_test/data/rgbd/gazebo_demo
+  --output /mnt/d/yoloe_test/data/rgbd/gazebo_minimal
 ```
 
 Trong PowerShell ở repo, chạy Perception trên ảnh vừa lấy:
 
 ```powershell
-.\.venv\Scripts\python.exe -m perception.rgbd --rgb data\rgbd\gazebo_demo\rgb.png --depth data\rgbd\gazebo_demo\depth.png --intrinsics data\rgbd\gazebo_demo\intrinsics.json --prompt "traffic cone" --output outputs\gazebo_cone
-.\.venv\Scripts\python.exe -m sim.check_builtin_box --input data\rgbd\gazebo_demo
+.\.venv\Scripts\python.exe -m perception.rgbd --rgb data\rgbd\gazebo_minimal\rgb.png --depth data\rgbd\gazebo_minimal\depth.png --intrinsics data\rgbd\gazebo_minimal\intrinsics.json --prompt "traffic cone" --output outputs\gazebo_minimal
+.\.venv\Scripts\python.exe -m sim.check_builtin_box --input data\rgbd\gazebo_minimal
 ```
 
-Kết quả lần thử: ảnh `320×240`, 56,6% pixel có depth hợp lệ; YOLOE nhận
-`traffic cone` với confidence `0,297`, tọa độ đại diện trong hệ camera
-`(1,009; -0,421; 4,850) m`. YOLOE **không nhận** khối đỏ đơn giản với prompt
+Kết quả lần thử với world gọn: ảnh `320×240`, 55,2% pixel có depth hợp lệ; YOLOE nhận
+`traffic cone` với confidence `0,656`, tọa độ đại diện trong hệ camera
+`(1,016; -0,192; 4,870) m`. YOLOE **không nhận** khối đỏ đơn giản với prompt
 `box`, nên `sim.check_builtin_box` tách riêng phép thử hình học bằng màu đỏ.
 Trong world mẫu, mặt trước khối đỏ cách camera xấp xỉ `4,450 m` theo trục quang
 học; depth thu được cho `4,448 m`, chênh `2 mm` ở frame đó. Đây là kiểm tra
 world mô phỏng lý tưởng và đường chuyển đổi dữ liệu, **không phải độ chính xác
-của camera vật lý**. Dữ liệu một frame và output được lưu ở `data/rgbd/gazebo_demo`
-và `outputs/gazebo_cone` (không đẩy lên Git).
+của camera vật lý**. Dữ liệu một frame và output được lưu ở `data/rgbd/gazebo_minimal`
+và `outputs/gazebo_minimal` (không đẩy lên Git).
 
 ## Thử trước bằng webcam RGB 2D
 

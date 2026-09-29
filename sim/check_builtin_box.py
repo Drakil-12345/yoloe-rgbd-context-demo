@@ -1,4 +1,4 @@
-"""Check the known red box front plane in Gazebo's sensors_demo.sdf."""
+"""Check the known red box front plane in the Gazebo perception demo."""
 
 from __future__ import annotations
 
@@ -18,14 +18,14 @@ def main() -> None:
     parser.add_argument("--input", type=Path, required=True,
                         help="Directory created by sim.capture_rgbd_ros.")
     parser.add_argument("--expected-z-m", type=float, default=4.45,
-                        help="Front-plane optical depth for the stock sensors_demo.sdf.")
+                        help="Front-plane optical depth for sim/perception_demo.sdf.")
     args = parser.parse_args()
     if not np.isfinite(args.expected_z_m) or args.expected_z_m <= 0:
         raise ValueError("--expected-z-m must be positive and finite")
     rgb, depth = load_rgbd(args.input / "rgb.png", args.input / "depth.png")
     intrinsics = CameraIntrinsics.from_json(args.input / "intrinsics.json")
     channels = rgb.astype(np.int16)
-    # In the stock world the box is red and the other models are not.
+    # In the demo world the box is red and the other models are not.
     region = (channels[:, :, 2] > 100) & (channels[:, :, 2] > 2 * channels[:, :, 1]) & (
         channels[:, :, 2] > 2 * channels[:, :, 0])
     position = localize_mask(depth, region, intrinsics)
@@ -33,7 +33,7 @@ def main() -> None:
         raise ValueError("No red box surface with enough valid depth was found")
     z = position["xyz_m"][2]
     report = {
-        "reference_definition": "front plane of the stock red box in sensors_demo.sdf",
+        "reference_definition": "front plane of the red box in perception_demo.sdf",
         "expected_z_m": args.expected_z_m,
         "estimated_z_m": z,
         "signed_difference_m": z - args.expected_z_m,
