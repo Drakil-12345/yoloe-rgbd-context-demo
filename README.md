@@ -263,6 +263,37 @@ world mô phỏng lý tưởng và đường chuyển đổi dữ liệu, **khô
 của camera vật lý**. Dữ liệu một frame và output được lưu ở `data/rgbd/gazebo_minimal`
 và `outputs/gazebo_minimal` (không đẩy lên Git).
 
+### Chạy YOLOE trực tiếp trên Gazebo
+
+Giữ Gazebo và ROS bridge ở hai terminal đầu như trên, rồi trong WSL chạy bộ
+chuyển frame RGB-D **cùng timestamp**. Nó chỉ ghi frame mới nhất (tối đa 5 Hz),
+không tích lũy một dataset lớn:
+
+```bash
+source /opt/ros/jazzy/setup.bash
+python3 /mnt/d/yoloe_test/sim/stream_rgbd_ros.py \
+  --output /mnt/d/yoloe_test/data/rgbd/gazebo_live/frame.npz
+```
+
+Trong PowerShell ở repo, mở cửa sổ kết quả YOLOE:
+
+```powershell
+.\.venv\Scripts\python.exe -m sim.live_yoloe --prompt "traffic cone"
+```
+
+Kéo `rgbd_camera` hoặc `traffic_cone` trong Gazebo khi mô phỏng đang **Play**.
+Cửa sổ kết quả cập nhật RGB, depth, vùng YOLOE, `(X,Y,Z)` theo hệ camera optical
+và `radial_distance_m` (khoảng cách thẳng tới tọa độ đại diện vùng nhìn thấy).
+Nếu Gazebo bị Pause quá 2 giây, cửa sổ hiện cảnh báo thiếu frame. Nhấn `Q`
+hoặc `Esc` để đóng YOLOE; `Ctrl+C` dừng bộ chuyển frame. Có thể thay prompt,
+chọn `--region box` để so sánh với segmentation, hoặc chạy tự động bằng
+`--duration 10 --no-display`. Ảnh/JSON mới nhất ở `outputs/gazebo_live/`.
+
+`live_update_fps` là tốc độ cập nhật toàn luồng, chịu giới hạn bởi `--max-rate`
+và thời gian YOLOE; `inference_and_localization_ms` là thời gian xử lý một frame.
+Các tọa độ là **so với camera đang di chuyển**, không phải tọa độ world của Gazebo.
+Chúng mô tả vùng bề mặt nhìn thấy, không mặc nhiên là tâm thật của vật.
+
 ## Thử trước bằng webcam RGB 2D
 
 Trên máy phát triển, webcam thật là camera `0` qua backend `msmf` (camera `1`

@@ -112,10 +112,11 @@ def render_result(
     depth: np.ndarray,
     detections: list[dict],
     crop_origin: tuple[float, float],
+    height: int = 720,
 ) -> np.ndarray:
     """Show the camera-frame XYZ marker alongside the depth image."""
-    scale = 720 / rgb.shape[0]
-    size = (round(rgb.shape[1] * scale), 720)
+    scale = height / rgb.shape[0]
+    size = (round(rgb.shape[1] * scale), height)
     left = cv2.resize(rgb, size, interpolation=cv2.INTER_CUBIC)
     right = cv2.resize(depth_colormap(depth), size, interpolation=cv2.INTER_NEAREST)
     labels = []
@@ -125,6 +126,8 @@ def render_result(
         position = item["position"]
         xyz = position["xyz_m"]
         coords = f"XYZ=({xyz[0]:+.3f},{xyz[1]:+.3f},{xyz[2]:.3f})m" if xyz else position["status"]
+        if xyz and position["radial_distance_m"] is not None:
+            coords += f" | distance={position['radial_distance_m']:.3f}m"
         score = f" {item['confidence']:.2f}" if item["confidence"] is not None else ""
         labels.append(f"{item['class']}{score} | {coords}")
         if position["anchor_pixel_full_xy"] is not None:
