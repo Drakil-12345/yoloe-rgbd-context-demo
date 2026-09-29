@@ -28,6 +28,20 @@ class GazeboAccuracyTests(unittest.TestCase):
         self.assertEqual(score["iou"], 1.0)
         self.assertAlmostEqual(score["xyz_error_m"], 0.0)
         self.assertEqual(score["matched_confidence"], 0.42)
+        self.assertEqual(score["gt_bbox_xyxy"], [3, 3, 9, 9])
+        self.assertEqual(score["gt_frame_edges"], [])
+        self.assertEqual(score["gt_depth_coverage"], 1.0)
+
+    def test_visible_target_reports_clipping_and_depth_coverage(self):
+        labels = np.zeros_like(self.labels)
+        labels[0:3, 9:12] = 1
+        depth = self.depth.copy()
+        depth[0, 9] = 0
+        score = evaluate_frame(labels, 1, depth, self.intrinsics, [], [])
+        self.assertEqual(score["status"], "missed")
+        self.assertEqual(score["gt_bbox_xyxy"], [9, 0, 12, 3])
+        self.assertEqual(score["gt_frame_edges"], ["top", "right"])
+        self.assertAlmostEqual(score["gt_depth_coverage"], 8 / 9)
 
     def test_miss_counts_against_rolling_detection_and_hit_rates(self):
         missed = evaluate_frame(self.labels, 1, self.depth, self.intrinsics, [], [])

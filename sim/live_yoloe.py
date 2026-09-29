@@ -76,11 +76,17 @@ def add_accuracy_footer(display: np.ndarray, detections: list[dict],
         metric_text = "Gazebo GT: unavailable for this prompt"
     elif accuracy["gt_pixels"] == 0:
         metric_text = f"Gazebo GT: target not visible ({accuracy['status']})"
+    elif accuracy["status"] == "missed":
+        edges = accuracy["gt_frame_edges"]
+        visibility = ("cut off at " + ", ".join(edges)) if edges else "inside frame"
+        metric_text = f"Gazebo GT: target visible, YOLOE missed ({visibility})"
     else:
         error = accuracy["xyz_error_m"]
         error_text = f"{error * 100:.1f} cm" if error is not None else "N/A"
         metric_text = (f"GT mask IoU: {accuracy['iou']:.2f} | "
                        f"XYZ difference: {error_text} (same depth)")
+        if accuracy["gt_frame_edges"]:
+            metric_text += " | cut off at " + ", ".join(accuracy["gt_frame_edges"])
     cv2.putText(footer, confidence_text, (10, display.shape[0] + 24),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.62, (255, 255, 255), 2, cv2.LINE_AA)
     cv2.putText(footer, metric_text, (10, display.shape[0] + 52),

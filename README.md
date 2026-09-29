@@ -213,6 +213,8 @@ Webcam RGB của laptop không cung cấp depth nên không thể dùng để đ
 Máy phát triển có Gazebo Sim 8 (Harmonic) và ROS 2 Jazzy trong WSL Ubuntu 24.04.
 World gọn `sim/perception_demo.sdf` giữ lại một cảm biến RGB-D, khối đỏ từ ví dụ
 `sensors_demo.sdf` của Gazebo và một nón dựng bằng hình khối ngay trong world.
+Camera được cố định trong mô phỏng vật lý để không tự rơi xuống sàn; vẫn có thể
+đổi pose của nó bằng Transform.
 Giao diện chỉ hiện ảnh RGB-D
 màu và depth; không hiện các bảng thermal, lidar hay camera phụ. World còn có
 một segmentation camera **ẩn**, cùng pose/FOV/độ phân giải với RGB-D, gán nhãn
@@ -315,6 +317,28 @@ vùng vật, **không phải sai số tuyệt đối của camera**. Những fra
 đứng yên không phải nhiều mẫu độc lập để kết luận độ chính xác tổng quát.
 Mask chuẩn chỉ được định nghĩa cho prompt `traffic cone` / `cone` và `box` /
 `red box`; prompt khác vẫn chạy YOLOE nhưng báo `Gazebo GT: unavailable`.
+Với prompt có mask chuẩn, JSON còn ghi `gt_bbox_xyxy`, `gt_frame_edges` và
+`gt_depth_coverage`. Nếu YOLOE bỏ sót, cửa sổ chỉ rõ vật còn trong khung hình
+hay bị cắt ở mép nào. Các thông tin này là chẩn đoán riêng của mô phỏng,
+không được cấp cho YOLOE khi suy luận.
+
+Camera mẫu chỉ tạo ảnh RGB **320×240**. Trong phép thử một frame với camera cố
+định, `traffic cone` cho confidence khoảng 0,62 ở pose ban đầu; nâng nón 1 m
+còn 0,17; nâng 2 m còn 0,06 và đỉnh nón bị cắt ở mép trên. Đưa nón cách camera
+khoảng 2 m nhưng lệch sang bên cho 0,06 và chạm mép phải; đặt thẳng phía trước
+ở khoảng 0,7 m cho 0,04 và đáy nón bị cắt. Depth của các pixel nón còn nhìn thấy
+vẫn hợp lệ trong những phép thử này. Với ngưỡng mặc định `--conf 0.1`, các
+trường hợp dưới 0,1 sẽ báo không detect. Đây là điểm tin cậy của nhận dạng RGB,
+không phải xác suất tọa độ 3D chính xác hay sai số khoảng cách; các số trên chỉ
+là một vài pose của nón mô phỏng, không phải đánh giá tổng quát của YOLOE.
+Thử tăng ảnh camera thật lên **640×480** trên cùng hai pose cũng không cải thiện:
+confidence pose ban đầu từ 0,62 còn 0,58, còn pose nón ở giữa ảnh cách khoảng
+2 m từ 0,11 còn 0,04. Vì thế demo vẫn dùng 320×240; phóng to đầu vào hoặc
+giảm `--conf` không tự giải quyết trường hợp vật bị cắt hay mô hình chọn nhầm
+một phần của nón.
+Có thể chạy `--conf 0.05` để xem ứng viên yếu trong lúc chẩn đoán, nhưng cần
+kiểm tra IoU và vị trí vì ứng viên có confidence cao nhất vẫn có thể là một
+phần của vật, không phải toàn bộ nón.
 
 ## Thử trước bằng webcam RGB 2D
 
