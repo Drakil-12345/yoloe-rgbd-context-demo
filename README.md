@@ -285,7 +285,11 @@ Trong PowerShell ở repo, mở cửa sổ kết quả YOLOE:
 .\.venv\Scripts\python.exe -m sim.live_yoloe --prompt "traffic cone"
 ```
 
-Kéo `rgbd_camera` hoặc `traffic_cone` trong Gazebo khi mô phỏng đang **Play**.
+Để di chuyển vật, trong **cảnh 3D lớn** (không phải ô ảnh RGB-D), bấm biểu tượng
+**Translate** hình bốn mũi tên ở góc trên trái, rồi bấm vào nón hoặc khối đỏ.
+Khi ba trục màu hiện quanh vật, giữ chuột trên đầu mũi tên và kéo. Biểu tượng
+con trỏ chỉ để chọn vật nên sẽ không hiện trục kéo; nhấn `Esc` để quay về chế độ
+chọn. Giữ mô phỏng ở trạng thái **Play** để camera và YOLOE cập nhật frame mới.
 Cửa sổ kết quả cập nhật RGB, depth, vùng YOLOE, `(X,Y,Z)` theo hệ camera optical
 và `radial_distance_m` (khoảng cách thẳng tới tọa độ đại diện vùng nhìn thấy).
 Nó còn hiển thị confidence cao nhất của YOLOE trong frame, IoU với mask chuẩn

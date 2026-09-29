@@ -46,6 +46,26 @@
           <property key="showTitleBar" type="bool">false</property>
         </gz-gui>
       </plugin>
+      <plugin filename="SelectEntities" name="Select Entities">
+        <gz-gui>
+          <property key="resizable" type="bool">false</property>
+          <property key="width" type="double">5</property>
+          <property key="height" type="double">5</property>
+          <property key="state" type="string">floating</property>
+          <property key="showTitleBar" type="bool">false</property>
+        </gz-gui>
+      </plugin>
+      <plugin filename="TransformControl" name="Transform control">
+        <gz-gui>
+          <property key="resizable" type="bool">false</property>
+          <property key="x" type="double">0</property>
+          <property key="y" type="double">50</property>
+          <property key="width" type="double">250</property>
+          <property key="height" type="double">50</property>
+          <property key="state" type="string">floating</property>
+          <property key="showTitleBar" type="bool">false</property>
+        </gz-gui>
+      </plugin>
       <plugin filename="WorldControl" name="World control">
         <gz-gui>
           <title>World control</title>
